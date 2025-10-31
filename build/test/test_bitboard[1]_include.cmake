@@ -1,5 +1,0 @@
-if(EXISTS "/home/onyx/chesscpp2/build/test/test_bitboard[1]_tests.cmake")
-  include("/home/onyx/chesscpp2/build/test/test_bitboard[1]_tests.cmake")
-else()
-  add_test(test_bitboard_NOT_BUILT test_bitboard_NOT_BUILT)
-endif()
