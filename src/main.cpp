@@ -6,6 +6,7 @@
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
+#include "UCI.h"
 #include "Window.h"
 #include "Zobrist.h"
 
@@ -21,6 +22,7 @@ void printUsage() {
   std::cout << "  -l, --load FILE   Load position from file\n";
   std::cout << "  --perft N         Run perft test to depth N\n";
   std::cout << "  --nogui           Run in console mode (no GUI)\n";
+  std::cout << "  --uci             Run in UCI mode (for GUIs/tournaments)\n";
   std::cout << "\n";
   std::cout << "Controls (GUI mode):\n";
   std::cout << "  Click to select/move pieces\n";
@@ -112,16 +114,10 @@ void runConsoleMode(Game& game, int aiDepth) {
 }
 
 int main(int argc, char* argv[]) {
-  // Initialize bitboard tables
-  std::cout << "Initializing bitboard tables...\n";
-  BB::init();
-  Magic::init();
-  Zobrist::init();
-  std::cout << "Initialization complete!\n\n";
-
   // Parse command line arguments
   bool useAI = false;
   bool useGUI = true;
+  bool useUCI = false;
   int aiDepth = 6;
   std::string fenString = "";
   std::string loadFile = "";
@@ -153,8 +149,27 @@ int main(int argc, char* argv[]) {
       }
     } else if (arg == "--nogui") {
       useGUI = false;
+    } else if (arg == "--uci") {
+      useUCI = true;
     }
   }
+
+  // Run UCI mode if requested (no initialization output)
+  if (useUCI) {
+    BB::init();
+    Magic::init();
+    Zobrist::init();
+    UCI uci;
+    uci.loop();
+    return 0;
+  }
+
+  // Initialize bitboard tables
+  std::cout << "Initializing bitboard tables...\n";
+  BB::init();
+  Magic::init();
+  Zobrist::init();
+  std::cout << "Initialization complete!\n\n";
 
   // Run perft if requested
   if (perftDepth > 0) {

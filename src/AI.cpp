@@ -652,9 +652,9 @@ namespace PST {
 constexpr int pawn[64] = {
     0,   0,   0,   0,   0,   0,   0,   0,    // Rank 1
     5,   10,  10, -20, -20,  10,  10,  5,    // Rank 2 (discourage early edge pawns)
-    5,   10,  15,  25,  25,  15,  10,  5,    // Rank 3
-    10,  15,  20,  40,  40,  20,  15,  10,   // Rank 4 (center pawns!)
-    15,  20,  25,  50,  50,  25,  20,  15,   // Rank 5 (advanced center)
+    5,   10,  20,  40,  40,  20,  10,  5,    // Rank 3 (increased center)
+    10,  15,  30,  70,  70,  30,  15,  10,   // Rank 4 (MAJOR bonus for e4/d4!)
+    15,  20,  35,  80,  80,  35,  20,  15,   // Rank 5 (advanced center - huge bonus)
     20,  25,  30,  35,  35,  30,  25,  20,   // Rank 6
     50,  50,  50,  50,  50,  50,  50,  50,   // Rank 7 (about to promote)
     0,   0,   0,   0,   0,   0,   0,   0};   // Rank 8
@@ -1035,9 +1035,9 @@ int AI::evaluateDevelopment(const Position& pos, Color c) const {
       score += 40;  // Big bonus for castling
     }
 
-    // Center pawn bonus (e4/d4)
-    if (pos.pieceAt(E4) == makePiece(WHITE, PAWN)) score += 15;
-    if (pos.pieceAt(D4) == makePiece(WHITE, PAWN)) score += 15;
+    // Center pawn bonus (e4/d4) - INCREASED to encourage central play
+    if (pos.pieceAt(E4) == makePiece(WHITE, PAWN)) score += 50;
+    if (pos.pieceAt(D4) == makePiece(WHITE, PAWN)) score += 50;
 
   } else {  // BLACK
     // Knights on starting squares
@@ -1070,9 +1070,9 @@ int AI::evaluateDevelopment(const Position& pos, Color c) const {
       score += 40;  // Big bonus for castling
     }
 
-    // Center pawn bonus (e5/d5)
-    if (pos.pieceAt(E5) == makePiece(BLACK, PAWN)) score += 15;
-    if (pos.pieceAt(D5) == makePiece(BLACK, PAWN)) score += 15;
+    // Center pawn bonus (e5/d5) - INCREASED to encourage central play
+    if (pos.pieceAt(E5) == makePiece(BLACK, PAWN)) score += 50;
+    if (pos.pieceAt(D5) == makePiece(BLACK, PAWN)) score += 50;
   }
 
   return score;

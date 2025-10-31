@@ -26,6 +26,7 @@ set(SOURCES
     src/AI.cpp
     src/Game.cpp
     src/Window.cpp
+    src/UCI.cpp
 )
 
 # Header files
@@ -38,6 +39,7 @@ set(HEADERS
     inc/AI.h
     inc/Game.h
     inc/Window.h
+    inc/UCI.h
     inc/Types.h
 )
 
