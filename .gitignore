@@ -1,0 +1,19 @@
+# Worktrees
+.worktrees/
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.exe
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
