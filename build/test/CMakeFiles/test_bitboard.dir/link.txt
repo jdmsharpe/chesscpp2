@@ -1,0 +1,1 @@
+/usr/bin/g++ -O2 -g -DNDEBUG CMakeFiles/test_bitboard.dir/test_bitboard.cpp.o CMakeFiles/test_bitboard.dir/__/src/Bitboard.cpp.o -o test_bitboard  ../lib/libgtest_main.a -lpthread ../lib/libgtest.a 
