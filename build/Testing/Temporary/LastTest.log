@@ -1,0 +1,516 @@
+Start testing: Oct 28 00:08 PDT
+----------------------------------------------------------
+1/19 Testing: BitboardTest.BasicOperations
+1/19 Test: BitboardTest.BasicOperations
+Command: "/home/onyx/chesscpp2/build/test/test_bitboard" "--gtest_filter=BitboardTest.BasicOperations" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"BitboardTest.BasicOperations" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = BitboardTest.BasicOperations
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BitboardTest
+[ RUN      ] BitboardTest.BasicOperations
+[       OK ] BitboardTest.BasicOperations (0 ms)
+[----------] 1 test from BitboardTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BitboardTest.BasicOperations" end time: Oct 28 00:08 PDT
+"BitboardTest.BasicOperations" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/19 Testing: BitboardTest.PawnPushes
+2/19 Test: BitboardTest.PawnPushes
+Command: "/home/onyx/chesscpp2/build/test/test_bitboard" "--gtest_filter=BitboardTest.PawnPushes" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"BitboardTest.PawnPushes" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = BitboardTest.PawnPushes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BitboardTest
+[ RUN      ] BitboardTest.PawnPushes
+[       OK ] BitboardTest.PawnPushes (0 ms)
+[----------] 1 test from BitboardTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"BitboardTest.PawnPushes" end time: Oct 28 00:08 PDT
+"BitboardTest.PawnPushes" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/19 Testing: BitboardTest.PawnAttacks
+3/19 Test: BitboardTest.PawnAttacks
+Command: "/home/onyx/chesscpp2/build/test/test_bitboard" "--gtest_filter=BitboardTest.PawnAttacks" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"BitboardTest.PawnAttacks" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = BitboardTest.PawnAttacks
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BitboardTest
+[ RUN      ] BitboardTest.PawnAttacks
+[       OK ] BitboardTest.PawnAttacks (0 ms)
+[----------] 1 test from BitboardTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"BitboardTest.PawnAttacks" end time: Oct 28 00:08 PDT
+"BitboardTest.PawnAttacks" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/19 Testing: BitboardTest.KnightAttacks
+4/19 Test: BitboardTest.KnightAttacks
+Command: "/home/onyx/chesscpp2/build/test/test_bitboard" "--gtest_filter=BitboardTest.KnightAttacks" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"BitboardTest.KnightAttacks" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = BitboardTest.KnightAttacks
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BitboardTest
+[ RUN      ] BitboardTest.KnightAttacks
+[       OK ] BitboardTest.KnightAttacks (0 ms)
+[----------] 1 test from BitboardTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"BitboardTest.KnightAttacks" end time: Oct 28 00:08 PDT
+"BitboardTest.KnightAttacks" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/19 Testing: BitboardTest.KingAttacks
+5/19 Test: BitboardTest.KingAttacks
+Command: "/home/onyx/chesscpp2/build/test/test_bitboard" "--gtest_filter=BitboardTest.KingAttacks" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"BitboardTest.KingAttacks" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = BitboardTest.KingAttacks
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BitboardTest
+[ RUN      ] BitboardTest.KingAttacks
+[       OK ] BitboardTest.KingAttacks (0 ms)
+[----------] 1 test from BitboardTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"BitboardTest.KingAttacks" end time: Oct 28 00:08 PDT
+"BitboardTest.KingAttacks" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/19 Testing: BitboardTest.FilesAndRanks
+6/19 Test: BitboardTest.FilesAndRanks
+Command: "/home/onyx/chesscpp2/build/test/test_bitboard" "--gtest_filter=BitboardTest.FilesAndRanks" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"BitboardTest.FilesAndRanks" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = BitboardTest.FilesAndRanks
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from BitboardTest
+[ RUN      ] BitboardTest.FilesAndRanks
+[       OK ] BitboardTest.FilesAndRanks (0 ms)
+[----------] 1 test from BitboardTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"BitboardTest.FilesAndRanks" end time: Oct 28 00:08 PDT
+"BitboardTest.FilesAndRanks" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/19 Testing: MoveGenTest.StartingPosition
+7/19 Test: MoveGenTest.StartingPosition
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.StartingPosition" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.StartingPosition" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.StartingPosition
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.StartingPosition
+[       OK ] MoveGenTest.StartingPosition (19 ms)
+[----------] 1 test from MoveGenTest (19 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (19 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.StartingPosition" end time: Oct 28 00:08 PDT
+"MoveGenTest.StartingPosition" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/19 Testing: MoveGenTest.PerftStartingPosition
+8/19 Test: MoveGenTest.PerftStartingPosition
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.PerftStartingPosition" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.PerftStartingPosition" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.PerftStartingPosition
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.PerftStartingPosition
+[       OK ] MoveGenTest.PerftStartingPosition (9 ms)
+[----------] 1 test from MoveGenTest (9 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (9 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.PerftStartingPosition" end time: Oct 28 00:08 PDT
+"MoveGenTest.PerftStartingPosition" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/19 Testing: MoveGenTest.PerftKiwipete
+9/19 Test: MoveGenTest.PerftKiwipete
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.PerftKiwipete" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.PerftKiwipete" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.PerftKiwipete
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.PerftKiwipete
+[       OK ] MoveGenTest.PerftKiwipete (7 ms)
+[----------] 1 test from MoveGenTest (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.PerftKiwipete" end time: Oct 28 00:08 PDT
+"MoveGenTest.PerftKiwipete" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/19 Testing: MoveGenTest.PerftCastlingRights
+10/19 Test: MoveGenTest.PerftCastlingRights
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.PerftCastlingRights" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.PerftCastlingRights" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.PerftCastlingRights
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.PerftCastlingRights
+[       OK ] MoveGenTest.PerftCastlingRights (17 ms)
+[----------] 1 test from MoveGenTest (17 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (17 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.PerftCastlingRights" end time: Oct 28 00:08 PDT
+"MoveGenTest.PerftCastlingRights" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/19 Testing: MoveGenTest.PerftPromotions
+11/19 Test: MoveGenTest.PerftPromotions
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.PerftPromotions" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.PerftPromotions" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.PerftPromotions
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.PerftPromotions
+[       OK ] MoveGenTest.PerftPromotions (33 ms)
+[----------] 1 test from MoveGenTest (33 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (34 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.PerftPromotions" end time: Oct 28 00:08 PDT
+"MoveGenTest.PerftPromotions" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/19 Testing: MoveGenTest.PerftMiddleGame
+12/19 Test: MoveGenTest.PerftMiddleGame
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.PerftMiddleGame" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.PerftMiddleGame" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.PerftMiddleGame
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.PerftMiddleGame
+[       OK ] MoveGenTest.PerftMiddleGame (11 ms)
+[----------] 1 test from MoveGenTest (11 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (11 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.PerftMiddleGame" end time: Oct 28 00:08 PDT
+"MoveGenTest.PerftMiddleGame" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/19 Testing: MoveGenTest.PerftEndgame
+13/19 Test: MoveGenTest.PerftEndgame
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.PerftEndgame" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.PerftEndgame" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.PerftEndgame
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.PerftEndgame
+[       OK ] MoveGenTest.PerftEndgame (7 ms)
+[----------] 1 test from MoveGenTest (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.PerftEndgame" end time: Oct 28 00:08 PDT
+"MoveGenTest.PerftEndgame" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/19 Testing: MoveGenTest.FENLoading
+14/19 Test: MoveGenTest.FENLoading
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.FENLoading" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.FENLoading" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.FENLoading
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.FENLoading
+[       OK ] MoveGenTest.FENLoading (7 ms)
+[----------] 1 test from MoveGenTest (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.FENLoading" end time: Oct 28 00:08 PDT
+"MoveGenTest.FENLoading" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/19 Testing: MoveGenTest.CheckDetection
+15/19 Test: MoveGenTest.CheckDetection
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.CheckDetection" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.CheckDetection" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.CheckDetection
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.CheckDetection
+[       OK ] MoveGenTest.CheckDetection (7 ms)
+[----------] 1 test from MoveGenTest (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.CheckDetection" end time: Oct 28 00:08 PDT
+"MoveGenTest.CheckDetection" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/19 Testing: MoveGenTest.MagicBitboardsRook
+16/19 Test: MoveGenTest.MagicBitboardsRook
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.MagicBitboardsRook" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.MagicBitboardsRook" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.MagicBitboardsRook
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.MagicBitboardsRook
+[       OK ] MoveGenTest.MagicBitboardsRook (5 ms)
+[----------] 1 test from MoveGenTest (5 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (5 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.MagicBitboardsRook" end time: Oct 28 00:08 PDT
+"MoveGenTest.MagicBitboardsRook" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/19 Testing: MoveGenTest.MagicBitboardsBishop
+17/19 Test: MoveGenTest.MagicBitboardsBishop
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.MagicBitboardsBishop" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.MagicBitboardsBishop" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.MagicBitboardsBishop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.MagicBitboardsBishop
+[       OK ] MoveGenTest.MagicBitboardsBishop (7 ms)
+[----------] 1 test from MoveGenTest (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.MagicBitboardsBishop" end time: Oct 28 00:08 PDT
+"MoveGenTest.MagicBitboardsBishop" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/19 Testing: MoveGenTest.MagicBitboardsQueen
+18/19 Test: MoveGenTest.MagicBitboardsQueen
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.MagicBitboardsQueen" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.MagicBitboardsQueen" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.MagicBitboardsQueen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.MagicBitboardsQueen
+[       OK ] MoveGenTest.MagicBitboardsQueen (5 ms)
+[----------] 1 test from MoveGenTest (5 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (5 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.MagicBitboardsQueen" end time: Oct 28 00:08 PDT
+"MoveGenTest.MagicBitboardsQueen" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/19 Testing: MoveGenTest.DiagonalWrappingBugFix
+19/19 Test: MoveGenTest.DiagonalWrappingBugFix
+Command: "/home/onyx/chesscpp2/build/test/test_movegen" "--gtest_filter=MoveGenTest.DiagonalWrappingBugFix" "--gtest_also_run_disabled_tests"
+Directory: /home/onyx/chesscpp2/build/test
+"MoveGenTest.DiagonalWrappingBugFix" start time: Oct 28 00:08 PDT
+Output:
+----------------------------------------------------------
+Running main() from /home/onyx/chesscpp2/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = MoveGenTest.DiagonalWrappingBugFix
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MoveGenTest
+[ RUN      ] MoveGenTest.DiagonalWrappingBugFix
+[       OK ] MoveGenTest.DiagonalWrappingBugFix (7 ms)
+[----------] 1 test from MoveGenTest (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"MoveGenTest.DiagonalWrappingBugFix" end time: Oct 28 00:08 PDT
+"MoveGenTest.DiagonalWrappingBugFix" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 28 00:08 PDT

@@ -1,0 +1,5 @@
+if(EXISTS "/home/onyx/chesscpp2/build/test/test_movegen[1]_tests.cmake")
+  include("/home/onyx/chesscpp2/build/test/test_movegen[1]_tests.cmake")
+else()
+  add_test(test_movegen_NOT_BUILT test_movegen_NOT_BUILT)
+endif()
