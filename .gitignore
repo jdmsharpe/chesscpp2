@@ -17,3 +17,12 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Chess engines and testing tools
+stockfish/
+*.tar
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

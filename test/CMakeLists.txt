@@ -32,6 +32,18 @@ add_executable(test_movegen
 target_include_directories(test_movegen PRIVATE ../inc)
 target_link_libraries(test_movegen PRIVATE GTest::gtest_main pthread)
 
+# Perft benchmark suite (standalone tool, not a test)
+add_executable(perft_suite
+    perft_suite.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+)
+target_include_directories(perft_suite PRIVATE ../inc)
+target_link_libraries(perft_suite PRIVATE pthread)
+
 # Discover tests
 include(GoogleTest)
 gtest_discover_tests(test_bitboard)
