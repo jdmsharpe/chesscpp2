@@ -8,6 +8,7 @@
 #include <random>
 
 #include "Bitboard.h"
+#include "Logger.h"
 #include "Magic.h"
 #include "MoveGen.h"
 
@@ -25,7 +26,11 @@ AI::AI(int depth)
       historyTable{},
       pvTable{},
       pvLength{},
-      countermoves{} {}
+      countermoves{} {
+  std::ostringstream oss;
+  oss << "AI::AI() constructor called (this=" << this << ")";
+  Logger::getInstance().debug(oss.str());
+}
 
 // Helper to get current time in milliseconds
 static uint64_t currentTimeMs() {
@@ -45,7 +50,7 @@ void AI::loadOpeningBook(const std::string& filename) {
   openingBook.clear();
   std::ifstream file(filename);
   if (!file.is_open()) {
-    std::cerr << "Warning: Could not open opening book: " << filename << std::endl;
+    Logger::getInstance().warning("Could not open opening book: " + filename);
     return;
   }
 
@@ -114,10 +119,16 @@ void AI::loadOpeningBook(const std::string& filename) {
     }
   }
 
-  std::cout << "Loaded opening book with " << openingBook.size() << " positions" << std::endl;
+  std::ostringstream oss;
+  oss << "Loaded opening book with " << openingBook.size() << " positions (AI at " << this << ")";
+  Logger::getInstance().info(oss.str());
 }
 
 Move AI::probeOpeningBook(const Position& pos) {
+  std::ostringstream oss;
+  oss << "Probing: AI at " << this << ", book size: " << openingBook.size();
+  Logger::getInstance().debug(oss.str());
+
   if (openingBook.empty()) return 0;
 
   std::string fen = pos.getFEN();
@@ -153,10 +164,12 @@ Move AI::findBestMove(Position& pos) {
   // Check opening book first
   Move bookMove = probeOpeningBook(pos);
   if (bookMove != 0) {
-    std::cout << "Book move found\n";
+    // UCI-compliant logging
+    std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
     return bookMove;
   }
 
+  std::cout << "info string Searching (no book move)..." << std::endl;
   nodesSearched = 0;
   ttHits = 0;
   ttAge++;  // Increment age for new search

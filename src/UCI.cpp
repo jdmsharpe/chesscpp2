@@ -1,19 +1,39 @@
 #include "UCI.h"
 
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
 #include "AI.h"
+#include "Logger.h"
 #include "MoveGen.h"
 #include "Types.h"
 
 UCI::UCI() : game(Game::HUMAN_VS_AI), searchDepth(6), debug(false) {
   game.setAIDepth(searchDepth);
+
+  // Try multiple paths for opening book (depends on where engine is run from)
+  bool bookLoaded = false;
+  const char* bookPaths[] = {"book.txt", "../book.txt", "../../book.txt"};
+  for (const char* path : bookPaths) {
+    std::ifstream test(path);
+    if (test.good()) {
+      game.loadOpeningBook(path);
+      bookLoaded = true;
+      Logger::getInstance().info(std::string("UCI: Book loaded from ") + path);
+      break;
+    }
+  }
+  if (!bookLoaded) {
+    Logger::getInstance().warning("Could not find opening book");
+  }
 }
 
 UCI::~UCI() {}
 
 void UCI::loop() {
+  Logger::getInstance().debug("UCI::loop() starting");
+
   std::string line;
 
   while (std::getline(std::cin, line)) {
@@ -66,7 +86,9 @@ void UCI::handleUCI() {
 void UCI::handleIsReady() { std::cout << "readyok" << std::endl; }
 
 void UCI::handleNewGame() {
-  game = Game(Game::HUMAN_VS_AI);
+  // Don't create new Game object - just reset the position
+  // This preserves the opening book that was loaded in the constructor
+  game.reset();
   game.setAIDepth(searchDepth);
 }
 
@@ -76,7 +98,7 @@ void UCI::handlePosition(const std::string& args) {
   iss >> token;
 
   if (token == "startpos") {
-    game = Game(Game::HUMAN_VS_AI);
+    game.reset();  // Reset position instead of creating new Game
     game.setAIDepth(searchDepth);
     iss >> token;  // Should be "moves" or nothing
   } else if (token == "fen") {
@@ -86,7 +108,7 @@ void UCI::handlePosition(const std::string& args) {
       if (!fen.empty()) fen += " ";
       fen += token;
     }
-    game = Game(Game::HUMAN_VS_AI);
+    game.reset();  // Reset position instead of creating new Game
     game.setAIDepth(searchDepth);
     if (!game.loadFEN(fen)) {
       if (debug) {
