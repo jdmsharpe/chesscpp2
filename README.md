@@ -183,8 +183,11 @@ Or run individual tests:
 Potential improvements:
 
 - [x] Transposition tables for caching positions (implemented - 128MB)
-- [ ] Iterative deepening
-- [ ] Quiescence search
+- [x] Iterative deepening (implemented)
+- [x] Quiescence search (implemented)
+- [x] Null move pruning (implemented)
+- [x] Aspiration windows (implemented)
+- [x] Late move reductions - LMR (implemented)
 - [x] Opening book (implemented - `book.txt`)
 - [ ] Endgame tablebases
 - [x] UCI protocol support (implemented - `--uci` flag)

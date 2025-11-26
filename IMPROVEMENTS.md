@@ -132,8 +132,11 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 
 - [x] Add piece sprites to GUI (implemented)
 - [x] Implement transposition tables (implemented - 128MB)
-- [ ] Add iterative deepening
-- [ ] Implement quiescence search
+- [x] Iterative deepening (implemented)
+- [x] Implement quiescence search (implemented)
+- [x] Null move pruning (implemented)
+- [x] Aspiration windows (implemented)
+- [x] Late move reductions - LMR (implemented)
 - [x] Add opening book (implemented - `book.txt`)
 - [x] UCI protocol support (implemented - `--uci` flag)
 - [ ] Multi-threading for search (Lazy SMP design in `docs/plans/`)
