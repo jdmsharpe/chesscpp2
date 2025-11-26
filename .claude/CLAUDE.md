@@ -113,7 +113,7 @@ Minimax with alpha-beta pruning in [AI.cpp](src/AI.cpp):
 
 - Move ordering: captures first, then promotions, then center control
 - Piece-square tables for positional evaluation
-- Opening book support (`book.txt`)
+- Opening book support (Polyglot .bin format, fallback to `book.txt`)
 - 128MB transposition table with depth-preferred replacement
 - Killer move heuristic
 - History heuristic
@@ -167,6 +167,32 @@ The engine supports Syzygy tablebases for perfect endgame play. Uses the Fathom 
 - DTZ (Distance-To-Zero) for optimal move selection
 - Supports positions with up to 7 pieces (depending on downloaded tablebases)
 
+### Polyglot Opening Books
+
+The engine supports Polyglot opening books (.bin format) for strong opening play.
+
+**Implementation:** [Polyglot.h/cpp](inc/Polyglot.h)
+
+- Standard Polyglot format (16 bytes per entry: hash, move, weight, learn)
+- Uses 781 standardized random numbers for hash computation
+- Weighted random move selection from book moves
+- Binary search for efficient probing
+
+**Polyglot Hash Computation:**
+
+- Uses standardized Zobrist keys different from internal engine keys
+- Piece ordering: bp=0, wp=1, bn=2, wn=3, bb=4, wb=5, br=6, wr=7, bq=8, wq=9, bk=10, wk=11
+- En passant only included if capture is possible
+- Castling encoded as king-captures-rook
+
+**Setup:**
+
+1. Download Polyglot books (e.g., Titans.bin, Human.bin)
+2. Place in `books/` directory
+3. Configure via UCI: `setoption name BookPath value /path/to/books/Titans.bin`
+
+**Priority:** Polyglot book is checked first, then fallback to text-based `book.txt`
+
 ## Component Organization
 
 ### Core Engine Files
@@ -179,6 +205,7 @@ The engine supports Syzygy tablebases for perfect endgame play. Uses the Fathom 
 - [Zobrist.h/cpp](inc/Zobrist.h) - Zobrist hashing for positions
 - [AI.h/cpp](inc/AI.h) - Search algorithm with evaluation
 - [Tablebase.h/cpp](inc/Tablebase.h) - Syzygy tablebase probing (via Fathom)
+- [Polyglot.h/cpp](inc/Polyglot.h) - Polyglot opening book support
 - [Logger.h](inc/Logger.h) - Thread-safe logging utility
 
 ### Interface Files
