@@ -30,8 +30,9 @@ __pycache__/
 *.pyc
 *.pyo
 
-# External libraries
-lib/
+# External libraries (but allow Fathom submodule)
+lib/*
+!lib/Fathom/
 
 # Syzygy tablebases
 syzygy/
