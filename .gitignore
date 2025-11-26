@@ -30,6 +30,5 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Claude AI files
-.claude/
+# Claude AI downstream files
 docs/
