@@ -103,11 +103,10 @@ void Game::updateGameResult() {
       // Stalemate
       result = DRAW;
     }
-  } else if (position.halfmoveClock() >= 100) {
-    // 50-move rule
+  } else if (position.isDraw()) {
+    // 50-move rule, threefold repetition, or insufficient material
     result = DRAW;
   }
-  // TODO: Add insufficient material detection, threefold repetition
 }
 
 std::string Game::getResultString() const {

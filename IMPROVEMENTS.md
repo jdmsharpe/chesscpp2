@@ -139,6 +139,9 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 - [x] Late move reductions - LMR (implemented)
 - [x] Add opening book (implemented - `book.txt`)
 - [x] UCI protocol support (implemented - `--uci` flag)
+- [x] Threefold repetition detection (implemented)
+- [x] Insufficient material detection (implemented)
+- [x] Time controls (implemented - wtime/btime/winc/binc)
 - [ ] Multi-threading for search (Lazy SMP design in `docs/plans/`)
 - [ ] Endgame tablebases
 

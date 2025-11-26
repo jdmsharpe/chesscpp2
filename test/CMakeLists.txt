@@ -32,6 +32,18 @@ add_executable(test_movegen
 target_include_directories(test_movegen PRIVATE ../inc)
 target_link_libraries(test_movegen PRIVATE GTest::gtest_main pthread)
 
+# Position tests (draw detection, make/unmake, SEE)
+add_executable(test_position
+    test_position.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+)
+target_include_directories(test_position PRIVATE ../inc)
+target_link_libraries(test_position PRIVATE GTest::gtest_main pthread)
+
 # Perft benchmark suite (standalone tool, not a test)
 add_executable(perft_suite
     perft_suite.cpp
@@ -48,3 +60,4 @@ target_link_libraries(perft_suite PRIVATE pthread)
 include(GoogleTest)
 gtest_discover_tests(test_bitboard)
 gtest_discover_tests(test_movegen)
+gtest_discover_tests(test_position)

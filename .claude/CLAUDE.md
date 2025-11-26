@@ -140,6 +140,15 @@ The engine supports the Universal Chess Interface (UCI) protocol for integration
 - Standard UCI commands: `uci`, `isready`, `position`, `go`, `stop`, `quit`
 - Supports FEN position loading and move sequences
 - Configurable search depth via `go depth N`
+- Time controls: `wtime`, `btime`, `winc`, `binc`, `movestogo`, `movetime`
+
+### Draw Detection
+
+The engine correctly detects all standard draw conditions:
+
+- **50-move rule**: Draw after 100 half-moves without capture or pawn move
+- **Threefold repetition**: Draw when same position occurs 3 times
+- **Insufficient material**: KvK, KNvK, KBvK, KBvKB (same-color bishops)
 
 ## Component Organization
 

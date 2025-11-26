@@ -192,9 +192,9 @@ Potential improvements:
 - [ ] Endgame tablebases
 - [x] UCI protocol support (implemented - `--uci` flag)
 - [x] Better piece sprites in GUI (implemented)
-- [ ] Threefold repetition detection
-- [ ] Insufficient material detection
-- [ ] Time controls
+- [x] Threefold repetition detection (implemented)
+- [x] Insufficient material detection (implemented)
+- [x] Time controls (implemented - wtime/btime/winc/binc)
 
 ## License
 
