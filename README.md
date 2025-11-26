@@ -13,6 +13,7 @@ An improved chess engine implementation using bitboards for fast move generation
 - **Piece-square tables** - Positional evaluation for better play
 - **FEN support** - Load and save positions in Forsyth-Edwards Notation
 - **Syzygy tablebases** - Perfect endgame play with 3-4-5 piece tablebases
+- **Polyglot opening books** - Industry-standard .bin format opening books
 
 ### User Interface
 
@@ -117,6 +118,34 @@ When the engine reaches a tablebase position, it will report:
 info string Tablebase hit: win (DTZ: 15)
 ```
 
+### Polyglot Opening Books
+
+The engine supports Polyglot opening books (.bin format) for strong opening play.
+
+**Setup:**
+
+1. Download a Polyglot book (e.g., Titans.bin, Human.bin, codekiddy.bin)
+2. Place the .bin file in a `books/` directory (or any location)
+
+**UCI configuration:**
+
+```text
+setoption name BookPath value /path/to/books/Titans.bin
+```
+
+When using a book move, the engine reports:
+
+```text
+info string Polyglot book move: e2e4
+```
+
+**Recommended books:**
+
+- **Titans.bin** - Strong, balanced play (recommended)
+- **Human.bin** - Human-like opening choices
+- **codekiddy.bin** - Large, comprehensive book
+- **gm2600.bin** - Grandmaster-level openings
+
 ## Architecture
 
 ### Key Components
@@ -210,7 +239,7 @@ Potential improvements:
 - [x] Null move pruning (implemented)
 - [x] Aspiration windows (implemented)
 - [x] Late move reductions - LMR (implemented)
-- [x] Opening book (implemented - `book.txt`)
+- [x] Opening book (implemented - Polyglot .bin format + `book.txt` fallback)
 - [x] Endgame tablebases (implemented - Syzygy 3-4-5 piece)
 - [x] UCI protocol support (implemented - `--uci` flag)
 - [x] Better piece sprites in GUI (implemented)

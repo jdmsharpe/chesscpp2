@@ -56,8 +56,22 @@ add_executable(perft_suite
 target_include_directories(perft_suite PRIVATE ../inc)
 target_link_libraries(perft_suite PRIVATE pthread)
 
+# Polyglot tests
+add_executable(test_polyglot
+    test_polyglot.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+    ../src/Polyglot.cpp
+)
+target_include_directories(test_polyglot PRIVATE ../inc)
+target_link_libraries(test_polyglot PRIVATE GTest::gtest_main pthread)
+
 # Discover tests
 include(GoogleTest)
 gtest_discover_tests(test_bitboard)
 gtest_discover_tests(test_movegen)
 gtest_discover_tests(test_position)
+gtest_discover_tests(test_polyglot)
