@@ -11,6 +11,7 @@
 #include "Logger.h"
 #include "Magic.h"
 #include "MoveGen.h"
+#include "Tablebase.h"
 
 AI::AI(int depth)
     : depth(depth),
@@ -167,6 +168,25 @@ Move AI::findBestMove(Position& pos) {
     // UCI-compliant logging
     std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
     return bookMove;
+  }
+
+  // Check Syzygy tablebases at root
+  if (Tablebase::available() && Tablebase::canProbe(pos)) {
+    TBProbeResult tbResult = Tablebase::probeRoot(pos);
+    if (tbResult.success && tbResult.bestMove != 0) {
+      const char* wdlStr = "unknown";
+      switch (tbResult.wdl) {
+        case TB_RESULT_WIN: wdlStr = "win"; break;
+        case TB_RESULT_CURSED_WIN: wdlStr = "cursed win"; break;
+        case TB_RESULT_DRAW: wdlStr = "draw"; break;
+        case TB_RESULT_BLESSED_LOSS: wdlStr = "blessed loss"; break;
+        case TB_RESULT_LOSS: wdlStr = "loss"; break;
+        default: break;
+      }
+      std::cout << "info string Tablebase hit: " << wdlStr
+                << " (DTZ: " << tbResult.dtz << ")" << std::endl;
+      return tbResult.bestMove;
+    }
   }
 
   std::cout << "info string Searching (no book move)..." << std::endl;
@@ -1305,4 +1325,17 @@ void AI::storeKiller(Move move, int ply) {
 bool AI::isKiller(Move move, int ply) const {
   if (ply >= 64) return false;
   return killerMoves[ply][0] == move || killerMoves[ply][1] == move;
+}
+
+// Syzygy tablebase methods
+bool AI::initTablebases(const std::string& path) {
+  return Tablebase::init(path);
+}
+
+void AI::freeTablebases() {
+  Tablebase::free();
+}
+
+bool AI::hasTablebases() {
+  return Tablebase::available();
 }

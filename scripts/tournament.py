@@ -6,8 +6,14 @@ UCI Chess Tournament Framework
 import subprocess
 import time
 import sys
+import os
 from dataclasses import dataclass
 from typing import List, Dict, Optional
+
+# Default Syzygy tablebase path (relative to project root)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DEFAULT_SYZYGY_PATH = os.path.join(PROJECT_ROOT, "syzygy")
 
 
 @dataclass
@@ -22,11 +28,16 @@ class GameResult:
 class Engine:
     """Represents a UCI chess engine"""
 
-    def __init__(self, name: str, path: str, options: Optional[Dict[str, str]] = None):
+    def __init__(self, name: str, path: str, options: Optional[Dict[str, str]] = None, use_syzygy: bool = True):
         self.name = name
         self.path = path
         self.options = options or {}
         self.process = None
+
+        # Auto-enable Syzygy tablebases if available and not already set
+        if use_syzygy and "SyzygyPath" not in self.options:
+            if os.path.isdir(DEFAULT_SYZYGY_PATH):
+                self.options["SyzygyPath"] = DEFAULT_SYZYGY_PATH
 
     def start(self):
         """Start the engine process"""
