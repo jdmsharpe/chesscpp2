@@ -11,6 +11,7 @@
 Lazy SMP (Shared Memory Parallelization) launches multiple search threads that run the same negamax algorithm independently but share a common transposition table. The "lazy" aspect means there's no complex work-stealing or coordination - threads naturally help each other through TT sharing.
 
 **Expected Performance:**
+
 - 4 threads: 2.5-3.0x speedup
 - Depth 6 search: 60s → 20s
 - Scalable to 8+ threads in future
@@ -28,7 +29,7 @@ Lazy SMP (Shared Memory Parallelization) launches multiple search threads that r
 
 ### Thread Lifecycle
 
-```
+```text
 Main Thread                    Worker Threads (1-3)
     |                                  |
     |-- Create thread pool             |
@@ -47,7 +48,7 @@ Main Thread                    Worker Threads (1-3)
 
 Moves distributed using **interleaved** pattern for load balancing:
 
-```
+```text
 Given 20 legal moves:
 Thread 0: [0, 4, 8, 12, 16]
 Thread 1: [1, 5, 9, 13, 17]
@@ -64,6 +65,7 @@ Thread 3: [3, 7, 11, 15, 19]
 ### The Challenge
 
 Multiple threads reading/writing simultaneously causes race conditions:
+
 - Corrupted data from partial reads/writes
 - Good cutoffs overwritten by shallow searches
 - Illegal moves from position corruption
@@ -87,17 +89,20 @@ struct TTEntry {
 **Thread-Safe Access Pattern:**
 
 **Probe (read):**
+
 1. Atomically read `key`
 2. If key matches hash, read other fields (safe because key validates data)
 3. If key doesn't match, entry is invalid
 
 **Store (write):**
+
 1. Check replacement criteria (don't overwrite better entries)
 2. Write depth, score, bestMove, flag, age
 3. Memory fence
 4. Atomically write key (makes entry valid)
 
 **Why this works:**
+
 - Invalid key = entry not yet valid or being written, skip it
 - Valid key = all fields are consistent (written before key)
 - Worst case: miss a TT hit (safe, just slower)
@@ -111,7 +116,7 @@ Threads must search differently to avoid redundant work. Each thread uses variat
 
 ### 1. Aspiration Window Variation
 
-```
+```text
 Thread 0: Standard (±50 centipawns)
 Thread 1: Wider (±75 cp) - more stable
 Thread 2: Narrower (±35 cp) - aggressive pruning
@@ -120,7 +125,7 @@ Thread 3: Full window every 3rd iteration
 
 ### 2. Late Move Reduction (LMR) Variation
 
-```
+```text
 Thread 0: Standard reduction
 Thread 1: +1 reduction (faster, shallower)
 Thread 2: -1 reduction (slower, deeper)
@@ -133,7 +138,7 @@ After first 3-4 moves, add small random perturbation (±50 cp) to move scores fo
 
 ### 4. Null Move Reduction Variation
 
-```
+```text
 Thread 0: R = 3 (standard)
 Thread 1: R = 4 (aggressive)
 Thread 2: R = 2 (conservative)
@@ -184,6 +189,7 @@ std::vector<ThreadData> threadData;  // One per thread
 ```
 
 **Why this separation?**
+
 - TT shared = massive benefit from cutoff sharing
 - Killers/history separate = no lock contention, unique thread personalities
 - Position separate = no race conditions on board state
@@ -223,16 +229,19 @@ std::vector<ThreadData> threadData;  // One per thread
 ## Expected Outcomes
 
 **Performance Gains:**
+
 - 2.5-3x faster search with 4 threads
 - Depth 6 becomes practical for real-time play (~20s)
 - Depth 7 becomes reachable in tournament time controls
 
 **Code Impact:**
+
 - ~300-400 lines added
 - ~100-150 lines modified
 - Total: ~500 lines across 3 files
 
 **Scalability:**
+
 - Architecture supports 8+ threads with minimal changes
 - Just increase thread count and adjust variations
 

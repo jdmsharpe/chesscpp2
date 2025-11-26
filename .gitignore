@@ -22,7 +22,14 @@ Thumbs.db
 stockfish/
 *.tar
 
+# Virtual environment
+.venv/
+
 # Python
 __pycache__/
 *.pyc
 *.pyo
+
+# Claude AI files
+.claude/
+docs/
