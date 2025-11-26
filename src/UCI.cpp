@@ -82,6 +82,7 @@ void UCI::handleUCI() {
   std::cout << "option name Debug type check default false" << std::endl;
   std::cout << "option name Depth type spin default 6 min 1 max 20" << std::endl;
   std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
+  std::cout << "option name BookPath type string default <empty>" << std::endl;
   std::cout << "uciok" << std::endl;
 }
 
@@ -295,6 +296,21 @@ void UCI::handleSetOption(const std::string& args) {
       } else {
         std::cout << "info string Failed to load Syzygy tablebases from: "
                   << path << std::endl;
+      }
+    }
+  } else if (name == "BookPath") {
+    // Read the rest of the line as the path (may contain spaces)
+    std::string path = value;
+    std::string extra;
+    while (iss >> extra) {
+      path += " " + extra;
+    }
+    if (!path.empty() && path != "<empty>") {
+      if (game.loadPolyglotBook(path)) {
+        std::cout << "info string Polyglot book loaded: " << path << std::endl;
+      } else {
+        std::cout << "info string Failed to load Polyglot book from: " << path
+                  << std::endl;
       }
     }
   }

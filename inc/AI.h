@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "Polyglot.h"
 #include "Position.h"
 #include "Types.h"
 
@@ -45,10 +46,15 @@ class AI {
   using MoveCallback = std::function<void(Move, int, const Position&)>;
   void setMoveCallback(MoveCallback callback) { moveCallback = callback; }
 
-  // Opening book
+  // Opening book (text format)
   void loadOpeningBook(const std::string& filename);
   Move probeOpeningBook(const Position& pos);
   bool hasOpeningBook() const;
+
+  // Polyglot opening book (.bin format)
+  bool loadPolyglotBook(const std::string& filename);
+  Move probePolyglotBook(const Position& pos);
+  bool hasPolyglotBook() const;
 
   // Syzygy tablebase support
   static bool initTablebases(const std::string& path);
@@ -103,6 +109,9 @@ class AI {
 
   // Opening book: FEN -> list of good moves (ordered by preference)
   std::unordered_map<std::string, std::vector<Move>> openingBook;
+
+  // Polyglot opening book
+  PolyglotBook polyglotBook;
 
   // Minimax with alpha-beta pruning
   int negamax(Position& pos, int depth, int alpha, int beta, int ply);
