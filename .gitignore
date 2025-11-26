@@ -29,6 +29,3 @@ stockfish/
 __pycache__/
 *.pyc
 *.pyo
-
-# Claude AI downstream files
-docs/
