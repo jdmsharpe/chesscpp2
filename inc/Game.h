@@ -36,6 +36,9 @@ class Game {
   void loadOpeningBook(const std::string& filename) {
     ai.loadOpeningBook(filename);
   }
+  bool loadPolyglotBook(const std::string& filename) {
+    return ai.loadPolyglotBook(filename);
+  }
   Move getAIMove();
 
   // Game status

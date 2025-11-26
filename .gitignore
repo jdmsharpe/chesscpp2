@@ -38,3 +38,6 @@ lib/*
 syzygy/
 *.rtbw
 *.rtbz
+
+# Polyglot opening books
+books/

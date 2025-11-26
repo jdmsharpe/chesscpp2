@@ -154,6 +154,19 @@ bool AI::hasOpeningBook() const {
   return !openingBook.empty();
 }
 
+// Polyglot book methods
+bool AI::loadPolyglotBook(const std::string& filename) {
+  return polyglotBook.load(filename);
+}
+
+Move AI::probePolyglotBook(const Position& pos) {
+  return polyglotBook.probe(pos);
+}
+
+bool AI::hasPolyglotBook() const {
+  return polyglotBook.isLoaded();
+}
+
 Move AI::findBestMove(Position& pos, int timeMs) {
   timeLimit = timeMs;
   searchStartTime = currentTimeMs();
@@ -162,10 +175,18 @@ Move AI::findBestMove(Position& pos, int timeMs) {
 }
 
 Move AI::findBestMove(Position& pos) {
-  // Check opening book first
+  // Check Polyglot book first (if loaded)
+  if (hasPolyglotBook()) {
+    Move bookMove = probePolyglotBook(pos);
+    if (bookMove != 0) {
+      std::cout << "info string Polyglot book move: " << moveToString(bookMove) << std::endl;
+      return bookMove;
+    }
+  }
+
+  // Fall back to text opening book
   Move bookMove = probeOpeningBook(pos);
   if (bookMove != 0) {
-    // UCI-compliant logging
     std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
     return bookMove;
   }
