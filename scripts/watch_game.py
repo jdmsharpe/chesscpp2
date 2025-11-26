@@ -5,6 +5,7 @@ Watch a single game move-by-move and output in PGN format
 
 import subprocess
 import time
+import os
 from datetime import datetime
 
 try:
@@ -15,6 +16,11 @@ except ImportError:
     HAS_CHESS = False
     print("Warning: python-chess not installed. Install with: pip install chess")
     print("Falling back to UCI notation output\n")
+
+# Default paths (relative to project root)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DEFAULT_BOOK_PATH = os.path.join(PROJECT_ROOT, "books", "Titans.bin")
 
 def create_engine(path, options=None):
     """Create and initialize a UCI engine"""
@@ -99,8 +105,11 @@ def play_game():
     print('[Result "*"]')
     print()
 
-    # Create engines
-    chesscpp = create_engine("./build/chesscpp2 --uci", {"Depth": "8"})
+    # Create engines with Polyglot book if available
+    chesscpp_options = {"Depth": "8"}
+    if os.path.isfile(DEFAULT_BOOK_PATH):
+        chesscpp_options["BookPath"] = DEFAULT_BOOK_PATH
+    chesscpp = create_engine("./build/chesscpp2 --uci", chesscpp_options)
     stockfish = create_engine("./stockfish/stockfish-ubuntu-x86-64-avx2", {"Skill Level": "1"})
     assert chesscpp.stdin is not None and stockfish.stdin is not None
 
