@@ -338,11 +338,10 @@ void Position::unmakeMove() {
   stm = ~stm;
   Color us = stm;
 
-  // Restore state (including hash)
+  // Restore state (except hash - restore at end since putPiece/removePiece modify it)
   castling = state.castling;
   epSquare = state.epSquare;
   halfmoves = state.halfmoves;
-  positionHash = state.hash;
   if (stm == BLACK) fullmoves--;  // Only decrement when undoing a black move
 
   // Undo the move
@@ -398,6 +397,9 @@ void Position::unmakeMove() {
       putPiece(rook, rookFrom);
     }
   }
+
+  // Restore hash at the end (after all piece movements that modify it)
+  positionHash = state.hash;
 }
 
 void Position::makeNullMove() {
@@ -685,4 +687,103 @@ int Position::seeCapture(Square, Color, Piece captured, Piece) const {
   // This function is now unused but kept for backward compatibility
   static const int pieceValues[6] = {100, 320, 330, 500, 900, 20000};
   return pieceValues[typeOf(captured)];
+}
+
+// Count how many times the current position has occurred in the game history
+int Position::repetitionCount() const {
+  int count = 1;  // Count current position
+
+  // Only need to check positions that had the same side to move
+  // and start from the end (most recent). We can stop early after halfmoves
+  // resets (captures/pawn moves) since those positions can't repeat.
+  int limit = std::min(static_cast<int>(history.size()), halfmoves);
+
+  for (int i = static_cast<int>(history.size()) - 2; i >= static_cast<int>(history.size()) - limit; i -= 2) {
+    if (i >= 0 && history[i].hash == positionHash) {
+      count++;
+    }
+  }
+
+  return count;
+}
+
+// Check if position has occurred three times (draw by repetition)
+bool Position::isThreefoldRepetition() const {
+  return repetitionCount() >= 3;
+}
+
+// Check for insufficient material to checkmate
+bool Position::isInsufficientMaterial() const {
+  // Count pieces for each side
+  int whitePawns = BB::popCount(pieces(WHITE, PAWN));
+  int blackPawns = BB::popCount(pieces(BLACK, PAWN));
+  int whiteKnights = BB::popCount(pieces(WHITE, KNIGHT));
+  int blackKnights = BB::popCount(pieces(BLACK, KNIGHT));
+  int whiteBishops = BB::popCount(pieces(WHITE, BISHOP));
+  int blackBishops = BB::popCount(pieces(BLACK, BISHOP));
+  int whiteRooks = BB::popCount(pieces(WHITE, ROOK));
+  int blackRooks = BB::popCount(pieces(BLACK, ROOK));
+  int whiteQueens = BB::popCount(pieces(WHITE, QUEEN));
+  int blackQueens = BB::popCount(pieces(BLACK, QUEEN));
+
+  // Any pawns, rooks, or queens = sufficient material
+  if (whitePawns || blackPawns || whiteRooks || blackRooks ||
+      whiteQueens || blackQueens) {
+    return false;
+  }
+
+  int whiteMinor = whiteKnights + whiteBishops;
+  int blackMinor = blackKnights + blackBishops;
+
+  // K vs K
+  if (whiteMinor == 0 && blackMinor == 0) {
+    return true;
+  }
+
+  // K+minor vs K (KN vs K, KB vs K)
+  if ((whiteMinor == 1 && blackMinor == 0) ||
+      (whiteMinor == 0 && blackMinor == 1)) {
+    return true;
+  }
+
+  // K+B vs K+B with bishops on same color
+  if (whiteKnights == 0 && blackKnights == 0 &&
+      whiteBishops == 1 && blackBishops == 1) {
+    // Check if bishops are on same color squares
+    Bitboard whiteBishopBB = pieces(WHITE, BISHOP);
+    Bitboard blackBishopBB = pieces(BLACK, BISHOP);
+    Square whiteBishopSq = BB::lsb(whiteBishopBB);
+    Square blackBishopSq = BB::lsb(blackBishopBB);
+
+    // Same color if both on light or both on dark squares
+    // Light squares: (file + rank) is even, dark squares: (file + rank) is odd
+    bool whiteOnLight = ((fileOf(whiteBishopSq) + rankOf(whiteBishopSq)) % 2) == 0;
+    bool blackOnLight = ((fileOf(blackBishopSq) + rankOf(blackBishopSq)) % 2) == 0;
+
+    if (whiteOnLight == blackOnLight) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Check for any draw condition
+bool Position::isDraw() const {
+  // 50-move rule
+  if (halfmoves >= 100) {
+    return true;
+  }
+
+  // Threefold repetition
+  if (isThreefoldRepetition()) {
+    return true;
+  }
+
+  // Insufficient material
+  if (isInsufficientMaterial()) {
+    return true;
+  }
+
+  return false;
 }

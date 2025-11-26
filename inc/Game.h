@@ -29,6 +29,7 @@ class Game {
 
   // AI control
   void setAIDepth(int depth) { ai.setDepth(depth); }
+  void setAITimeLimit(int ms) { ai.setTimeLimit(ms); }
   void setAIMoveCallback(AI::MoveCallback callback) {
     ai.setMoveCallback(callback);
   }

@@ -146,7 +146,12 @@ void UCI::handleGo(const std::string& args) {
   std::string token;
 
   int depth = searchDepth;
-  int movetime = -1;  // milliseconds
+  int movetime = -1;    // milliseconds (explicit movetime)
+  int wtime = -1;       // White's remaining time in ms
+  int btime = -1;       // Black's remaining time in ms
+  int winc = 0;         // White's increment per move in ms
+  int binc = 0;         // Black's increment per move in ms
+  int movestogo = -1;   // Moves until next time control
   bool infinite = false;
 
   // Parse go parameters
@@ -157,34 +162,84 @@ void UCI::handleGo(const std::string& args) {
       depthSpecified = true;
     } else if (token == "movetime") {
       iss >> movetime;
+    } else if (token == "wtime") {
+      iss >> wtime;
+    } else if (token == "btime") {
+      iss >> btime;
+    } else if (token == "winc") {
+      iss >> winc;
+    } else if (token == "binc") {
+      iss >> binc;
+    } else if (token == "movestogo") {
+      iss >> movestogo;
     } else if (token == "infinite") {
       infinite = true;
     }
-    // Note: wtime, btime, winc, binc are ignored for now
   }
 
-  // Only use movetime-based depth if depth wasn't explicitly specified
-  if (movetime > 0 && !infinite && !depthSpecified) {
-    // Rough heuristic: adjust depth based on time
-    if (movetime < 100) {
-      depth = 3;
-    } else if (movetime < 1000) {
-      depth = 4;
-    } else if (movetime < 5000) {
-      depth = 5;
+  // Calculate time to use for this move
+  int timeForMove = 0;  // 0 means no time limit
+
+  if (!infinite && !depthSpecified) {
+    if (movetime > 0) {
+      // Explicit movetime - use it directly with small safety margin
+      timeForMove = movetime - 50;  // 50ms safety buffer
     } else {
-      depth = 6;
+      // Calculate from game time controls
+      Color stm = game.getPosition().sideToMove();
+      int ourTime = (stm == WHITE) ? wtime : btime;
+      int ourInc = (stm == WHITE) ? winc : binc;
+
+      if (ourTime > 0) {
+        // Estimate moves remaining if not specified
+        int movesLeft = (movestogo > 0) ? movestogo : 30;
+
+        // Basic time allocation: time/moves + increment
+        // Use 2.5% of remaining time as base, plus most of the increment
+        timeForMove = ourTime / movesLeft + (ourInc * 3 / 4);
+
+        // Don't use more than 10% of remaining time on any single move
+        int maxTime = ourTime / 10;
+        if (timeForMove > maxTime) {
+          timeForMove = maxTime;
+        }
+
+        // Minimum time of 100ms, and leave 100ms buffer
+        if (timeForMove < 100) {
+          timeForMove = 100;
+        }
+        if (timeForMove > ourTime - 100) {
+          timeForMove = ourTime - 100;
+        }
+        if (timeForMove < 10) {
+          timeForMove = 10;  // Absolute minimum
+        }
+
+        if (debug) {
+          std::cout << "info string Time control: " << ourTime << "ms remaining, "
+                    << ourInc << "ms increment, using " << timeForMove << "ms" << std::endl;
+        }
+      }
     }
   }
 
+  // Set time limit (0 = no limit for infinite or depth-based search)
+  game.setAITimeLimit(timeForMove);
   game.setAIDepth(depth);
 
   if (debug) {
-    std::cout << "info string Searching at depth " << depth << std::endl;
+    if (timeForMove > 0) {
+      std::cout << "info string Searching with " << timeForMove << "ms time limit" << std::endl;
+    } else {
+      std::cout << "info string Searching at depth " << depth << std::endl;
+    }
   }
 
   // Get AI move
   Move bestMove = game.getAIMove();
+
+  // Reset time limit after search
+  game.setAITimeLimit(0);
 
   if (bestMove != 0) {
     std::cout << "bestmove " << moveToString(bestMove) << std::endl;

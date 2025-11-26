@@ -48,6 +48,11 @@ class Position {
   bool isStalemate();
   bool isDraw() const;
 
+  // Draw detection helpers
+  bool isThreefoldRepetition() const;
+  bool isInsufficientMaterial() const;
+  int repetitionCount() const;
+
   // Attacks and pins
   Bitboard attacksTo(Square sq) const;
   Bitboard attacksFrom(Square sq) const;
