@@ -5,6 +5,7 @@ An improved chess engine implementation using bitboards for fast move generation
 ## Features
 
 ### Core Engine
+
 - **Bitboard representation** - 64-bit integers for efficient board representation
 - **Magic bitboards** - Ultra-fast sliding piece (rook, bishop, queen) move generation
 - **Fast move generation** - Optimized legal move generation using bit operations
@@ -13,6 +14,7 @@ An improved chess engine implementation using bitboards for fast move generation
 - **FEN support** - Load and save positions in Forsyth-Edwards Notation
 
 ### User Interface
+
 - **SDL2 GUI** - Graphical chess board with mouse input
 - **Console mode** - Text-based interface for terminal play
 - **Interactive features**:
@@ -25,6 +27,7 @@ An improved chess engine implementation using bitboards for fast move generation
 ## Building
 
 ### Requirements
+
 - CMake 3.16 or higher
 - C++20 compatible compiler (GCC, Clang, or MSVC)
 - SDL2 and SDL2_image libraries
@@ -39,11 +42,13 @@ cmake --build .
 ```
 
 ### Installing SDL2 on Ubuntu/Debian
+
 ```bash
 sudo apt-get install libsdl2-dev libsdl2-image-dev
 ```
 
 ### Installing SDL2 on macOS
+
 ```bash
 brew install sdl2 sdl2_image
 ```
@@ -113,6 +118,7 @@ brew install sdl2 sdl2_image
 ### Magic Bitboards
 
 Magic bitboards use a technique where:
+
 1. Relevant occupancy bits are extracted from the board
 2. A magic number multiplies the occupancy
 3. The result is right-shifted to create an index
@@ -175,13 +181,14 @@ Or run individual tests:
 ## Future Enhancements
 
 Potential improvements:
-- [ ] Transposition tables for caching positions
+
+- [x] Transposition tables for caching positions (implemented - 128MB)
 - [ ] Iterative deepening
 - [ ] Quiescence search
-- [ ] Opening book
+- [x] Opening book (implemented - `book.txt`)
 - [ ] Endgame tablebases
-- [ ] UCI protocol support
-- [ ] Better piece sprites in GUI
+- [x] UCI protocol support (implemented - `--uci` flag)
+- [x] Better piece sprites in GUI (implemented)
 - [ ] Threefold repetition detection
 - [ ] Insufficient material detection
 - [ ] Time controls

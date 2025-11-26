@@ -7,7 +7,9 @@ Successfully created an improved chess engine using bitboards, magic bitboards, 
 ## Major Bugs Fixed
 
 ### 1. Diagonal Wrapping Bug (Critical)
+
 **Problem**: Bishops and queens could wrap around board edges on diagonal moves
+
 - Example: Bishop on f8 could illegally capture on h1
 - Caused by missing wrapping checks for diagonal directions (-9, -7, 7, 9)
 
@@ -22,17 +24,21 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 ```
 
 ### 2. Incomplete unmakeMove() (Critical)
+
 **Problem**: `unmakeMove()` only restored state variables, didn't undo piece movements
+
 - Caused position corruption when checking move legality
 - Led to segfaults and incorrect move generation
 
 **Solution**: Implemented complete move reversal for all move types:
+
 - Normal moves: restore piece and captured piece
 - Promotions: remove promoted piece, restore pawn
 - En passant: restore captured pawn
 - Castling: move both king and rook back
 
 ### 3. Fullmove Counter Bug
+
 **Problem**: Fullmove number was decremented incorrectly when unmaking White moves
 
 **Solution**: Changed condition from `if (stm == WHITE)` to `if (stm == BLACK)` to match the increment logic
@@ -50,6 +56,7 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 | 5     | 4,865,609  | 132ms   | 37 Mn/s    |
 
 ### Speed Comparison
+
 - **Magic bitboards**: 37 million nodes/second
 - **Estimated slow method**: ~3-4 million nodes/second
 - **Speedup**: ~10x faster with magic bitboards
@@ -57,17 +64,20 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 ## Technical Implementation
 
 ### Bitboard Representation
+
 - 12 bitboards total: 6 piece types × 2 colors
 - 64-bit integers for O(1) operations
 - Separate piece array for fast `pieceAt()` queries
 
 ### Magic Bitboards
+
 - Pre-computed attack tables for rooks and bishops
 - Magic number hashing for O(1) attack generation
 - Relevant occupancy masking (excludes edge squares)
 - Tables: ~107KB for rooks, ~5KB for bishops
 
 ### Move Generation Pipeline
+
 1. Generate pseudo-legal moves (fast)
 2. Make move on temporary position
 3. Check if king is in check (illegal if yes)
@@ -75,6 +85,7 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 5. Return only legal moves
 
 ### AI Implementation
+
 - Minimax with alpha-beta pruning
 - Move ordering: captures, promotions, center control
 - Piece-square tables for positional evaluation
@@ -83,6 +94,7 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 ## Files Modified/Created
 
 ### Core Engine
+
 - `inc/Types.h` - Type definitions and constants
 - `inc/Bitboard.h`, `src/Bitboard.cpp` - Bitboard operations
 - `inc/Magic.h`, `src/Magic.cpp` - Magic bitboard implementation
@@ -94,10 +106,12 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 - `src/main.cpp` - Entry point with CLI
 
 ### Build System
+
 - `CMakeLists.txt` - CMake configuration
 - `test/CMakeLists.txt` - Test configuration
 
 ### Documentation
+
 - `README.md` - Comprehensive documentation
 - `IMPROVEMENTS.md` - This file
 
@@ -111,25 +125,24 @@ if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 
 ## Known Limitations
 
-1. GUI uses simple colored squares instead of piece sprites
-2. Test suite needs stdc++ linking fix
-3. No opening book or endgame tablebases
-4. No transposition table (yet)
+1. Test suite needs stdc++ linking fix
+2. No endgame tablebases
 
 ## Future Enhancements
 
-- [ ] Add piece sprites to GUI
-- [ ] Implement transposition tables
+- [x] Add piece sprites to GUI (implemented)
+- [x] Implement transposition tables (implemented - 128MB)
 - [ ] Add iterative deepening
 - [ ] Implement quiescence search
-- [ ] Add opening book
-- [ ] UCI protocol support
-- [ ] Multi-threading for search
+- [x] Add opening book (implemented - `book.txt`)
+- [x] UCI protocol support (implemented - `--uci` flag)
+- [ ] Multi-threading for search (Lazy SMP design in `docs/plans/`)
 - [ ] Endgame tablebases
 
 ## Conclusion
 
 The chess engine is now **fully functional and correct**:
+
 - ✓ No crashes or segfaults
 - ✓ All moves are legal
 - ✓ AI plays sensibly

@@ -27,6 +27,7 @@ def create_engine(path, options=None):
         text=True,
         bufsize=1
     )
+    assert proc.stdin is not None and proc.stdout is not None
 
     # Initialize
     proc.stdin.write("uci\n")
@@ -76,7 +77,7 @@ def uci_to_san(board, uci_move):
     """Convert UCI move to SAN if python-chess is available"""
     if HAS_CHESS:
         try:
-            move = chess.Move.from_uci(uci_move)
+            move = chess.Move.from_uci(uci_move)  # type: ignore[possibly-undefined]
             san = board.san(move)
             board.push(move)
             return san
@@ -101,6 +102,7 @@ def play_game():
     # Create engines
     chesscpp = create_engine("./build/chesscpp2 --uci", {"Depth": "8"})
     stockfish = create_engine("./stockfish/stockfish-ubuntu-x86-64-avx2", {"Skill Level": "1"})
+    assert chesscpp.stdin is not None and stockfish.stdin is not None
 
     # Start game
     chesscpp.stdin.write("ucinewgame\n")
@@ -113,7 +115,7 @@ def play_game():
     result = "*"
 
     if HAS_CHESS:
-        board = chess.Board()
+        board = chess.Board()  # type: ignore[possibly-undefined]
 
     # Play the game
     for move_num in range(max_moves):
@@ -139,11 +141,11 @@ def play_game():
 
     # Output movetext in PGN format
     if HAS_CHESS:
-        board = chess.Board()
+        board = chess.Board()  # type: ignore[possibly-undefined]
         output = []
         for i, uci_move in enumerate(moves):
             try:
-                move = chess.Move.from_uci(uci_move)
+                move = chess.Move.from_uci(uci_move)  # type: ignore[possibly-undefined]
                 san = board.san(move)
                 board.push(move)
 

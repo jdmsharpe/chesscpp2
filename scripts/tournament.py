@@ -22,7 +22,7 @@ class GameResult:
 class Engine:
     """Represents a UCI chess engine"""
 
-    def __init__(self, name: str, path: str, options: Dict[str, str] = None):
+    def __init__(self, name: str, path: str, options: Optional[Dict[str, str]] = None):
         self.name = name
         self.path = path
         self.options = options or {}
@@ -39,6 +39,7 @@ class Engine:
             text=True,
             bufsize=1
         )
+        assert self.process.stdin is not None and self.process.stdout is not None
 
         # Initialize UCI
         self._send("uci")
@@ -64,7 +65,7 @@ class Engine:
         self._send("isready")
         self._wait_for("readyok")
 
-    def get_move(self, position_fen: str, moves: List[str], depth: int = 6, movetime: Optional[int] = None) -> str:
+    def get_move(self, position_fen: str, moves: List[str], depth: int = 6, movetime: Optional[int] = None) -> Optional[str]:
         """Get best move for current position"""
         # Send position
         if moves:
@@ -94,12 +95,13 @@ class Engine:
 
     def _send(self, command: str):
         """Send command to engine"""
-        if self.process:
-            self.process.stdin.write(command + "\n")
-            self.process.stdin.flush()
+        assert self.process is not None and self.process.stdin is not None
+        self.process.stdin.write(command + "\n")
+        self.process.stdin.flush()
 
     def _wait_for(self, expected: str, timeout: float = 30.0) -> Optional[str]:
         """Wait for expected response from engine"""
+        assert self.process is not None and self.process.stdout is not None
         start_time = time.time()
         while time.time() - start_time < timeout:
             line = self.process.stdout.readline().strip()
