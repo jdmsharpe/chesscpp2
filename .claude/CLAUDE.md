@@ -118,7 +118,10 @@ Minimax with alpha-beta pruning in [AI.cpp](src/AI.cpp):
 - Killer move heuristic
 - History heuristic
 - Internal iterative deepening (IID)
-- No quiescence search (yet)
+- Quiescence search (captures + checks at leaf nodes)
+- Null move pruning (with zugzwang detection)
+- Aspiration windows (for iterative deepening)
+- Late move reductions (LMR)
 
 **Performance by depth:**
 
