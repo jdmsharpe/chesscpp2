@@ -12,6 +12,7 @@ An improved chess engine implementation using bitboards for fast move generation
 - **AI with alpha-beta pruning** - Minimax search with move ordering and pruning
 - **Piece-square tables** - Positional evaluation for better play
 - **FEN support** - Load and save positions in Forsyth-Edwards Notation
+- **Syzygy tablebases** - Perfect endgame play with 3-4-5 piece tablebases
 
 ### User Interface
 
@@ -94,6 +95,27 @@ brew install sdl2 sdl2_image
 - `fen` - Show FEN string of current position
 - `ai` or `a` - Make AI move
 - `quit` or `q` - Exit
+
+### Syzygy Tablebases
+
+The engine supports Syzygy endgame tablebases for perfect play in positions with 3-5 pieces.
+
+**Setup:**
+
+1. Download tablebase files from [tablebase.sesse.net](http://tablebase.sesse.net/syzygy/3-4-5/)
+2. Place `.rtbw` and `.rtbz` files in a `syzygy/` directory
+
+**UCI configuration:**
+
+```text
+setoption name SyzygyPath value /path/to/syzygy
+```
+
+When the engine reaches a tablebase position, it will report:
+
+```text
+info string Tablebase hit: win (DTZ: 15)
+```
 
 ## Architecture
 
@@ -189,7 +211,7 @@ Potential improvements:
 - [x] Aspiration windows (implemented)
 - [x] Late move reductions - LMR (implemented)
 - [x] Opening book (implemented - `book.txt`)
-- [ ] Endgame tablebases
+- [x] Endgame tablebases (implemented - Syzygy 3-4-5 piece)
 - [x] UCI protocol support (implemented - `--uci` flag)
 - [x] Better piece sprites in GUI (implemented)
 - [x] Threefold repetition detection (implemented)

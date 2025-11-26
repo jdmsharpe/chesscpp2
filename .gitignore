@@ -29,3 +29,11 @@ stockfish/
 __pycache__/
 *.pyc
 *.pyo
+
+# External libraries
+lib/
+
+# Syzygy tablebases
+syzygy/
+*.rtbw
+*.rtbz

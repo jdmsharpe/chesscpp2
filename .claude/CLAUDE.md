@@ -150,6 +150,23 @@ The engine correctly detects all standard draw conditions:
 - **Threefold repetition**: Draw when same position occurs 3 times
 - **Insufficient material**: KvK, KNvK, KBvK, KBvKB (same-color bishops)
 
+### Syzygy Endgame Tablebases
+
+The engine supports Syzygy tablebases for perfect endgame play. Uses the Fathom library.
+
+**Setup:**
+
+1. Download Syzygy tablebases from [syzygy-tables.info](https://syzygy-tables.info/)
+2. Place `.rtbw` (WDL) and `.rtbz` (DTZ) files in a directory
+3. Configure via UCI: `setoption name SyzygyPath value /path/to/syzygy`
+
+**Implementation:** [Tablebase.h/cpp](inc/Tablebase.h) wrapping [lib/Fathom](lib/Fathom)
+
+- Probes at root for perfect play in tablebase positions
+- WDL (Win/Draw/Loss) probing during search
+- DTZ (Distance-To-Zero) for optimal move selection
+- Supports positions with up to 7 pieces (depending on downloaded tablebases)
+
 ## Component Organization
 
 ### Core Engine Files
@@ -161,6 +178,7 @@ The engine correctly detects all standard draw conditions:
 - [MoveGen.h/cpp](inc/MoveGen.h) - Legal and pseudo-legal move generation
 - [Zobrist.h/cpp](inc/Zobrist.h) - Zobrist hashing for positions
 - [AI.h/cpp](inc/AI.h) - Search algorithm with evaluation
+- [Tablebase.h/cpp](inc/Tablebase.h) - Syzygy tablebase probing (via Fathom)
 - [Logger.h](inc/Logger.h) - Thread-safe logging utility
 
 ### Interface Files
@@ -214,5 +232,4 @@ Any deviation indicates a bug in move generation.
 
 ## Known Issues
 
-1. No endgame tablebases
-2. Fullmove counter can desync if unmakeMove logic is incorrect
+1. Fullmove counter can desync if unmakeMove logic is incorrect

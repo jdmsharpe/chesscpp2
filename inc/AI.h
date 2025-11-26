@@ -50,6 +50,11 @@ class AI {
   Move probeOpeningBook(const Position& pos);
   bool hasOpeningBook() const;
 
+  // Syzygy tablebase support
+  static bool initTablebases(const std::string& path);
+  static void freeTablebases();
+  static bool hasTablebases();
+
  private:
   int depth;
   uint64_t nodesSearched;
