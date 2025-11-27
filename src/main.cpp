@@ -182,8 +182,13 @@ int main(int argc, char* argv[]) {
   Game game(mode);
   game.setAIDepth(aiDepth);
 
-  // Load opening book
-  game.loadOpeningBook("../book.txt");
+  // Load opening book (try Polyglot first, fall back to text book)
+  if (!game.loadPolyglotBook("../books/Titans.bin")) {
+    std::cout << "Polyglot book not found, trying text book...\n";
+    game.loadOpeningBook("../book.txt");
+  } else {
+    std::cout << "Loaded Polyglot opening book\n";
+  }
 
   // Load position if specified
   if (!fenString.empty()) {
