@@ -20,7 +20,7 @@ void printUsage() {
   std::cout << "  -d, --depth N     Set AI search depth (default: 4)\n";
   std::cout << "  -f, --fen FEN     Load position from FEN string\n";
   std::cout << "  -l, --load FILE   Load position from file\n";
-  std::cout << "  --perft N         Run perft test to depth N\n";
+  std::cout << "  --perft N         Run perft test to depth N (use with -f for custom position)\n";
   std::cout << "  --nogui           Run in console mode (no GUI)\n";
   std::cout << "  --uci             Run in UCI mode (for GUIs/tournaments)\n";
   std::cout << "\n";
@@ -31,11 +31,11 @@ void printUsage() {
   std::cout << "  Close window or Ctrl+C to quit\n";
 }
 
-void runPerft(int depth) {
+void runPerft(int depth, const std::string& fen) {
   std::cout << "Running Perft test to depth " << depth << "...\n\n";
 
   Position pos;
-  pos.setFromFEN(STARTING_FEN);
+  pos.setFromFEN(fen);
   pos.print();
 
   MoveGen::perftDivide(pos, depth);
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
 
   // Run perft if requested
   if (perftDepth > 0) {
-    runPerft(perftDepth);
+    runPerft(perftDepth, fenString.empty() ? STARTING_FEN : fenString);
     return 0;
   }
 
