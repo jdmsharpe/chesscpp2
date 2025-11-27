@@ -32,10 +32,7 @@ jobs:
         run: ctest --output-on-failure --parallel
 
       - name: Run perft verification
-        working-directory: build
-        run: |
-          echo "Running perft depth 5 verification..."
-          ./chesscpp2 --perft 5
+        run: ./scripts/verify_perft.sh ./build/chesscpp2
 
   build-debug:
     runs-on: ubuntu-latest
