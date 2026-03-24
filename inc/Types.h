@@ -203,3 +203,10 @@ constexpr Piece makePiece(Color c, PieceType pt) { return Piece(c * 6 + pt); }
 constexpr Color colorOf(Piece pc) { return Color(pc / 6); }
 
 constexpr PieceType typeOf(Piece pc) { return PieceType(pc % 6); }
+
+// Move with cached scoring data for move ordering
+struct ScoredMove {
+  Move move;
+  int score;      // move ordering score
+  int seeValue;   // cached SEE value (INT_MIN = not computed)
+};
