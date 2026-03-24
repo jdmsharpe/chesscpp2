@@ -17,6 +17,11 @@ std::vector<Move> generatePseudoLegalMoves(const Position& pos);
 // Generate only captures
 std::vector<Move> generateCaptures(Position& pos);
 
+// Generate non-capture moves that give check (for quiescence search)
+// Uses the fallback approach: generates pseudo-legal non-captures,
+// makes each move, checks if it gives check, filters for legality.
+std::vector<Move> generateCheckingMoves(Position& pos);
+
 // Check if a move is legal
 bool isLegal(Position& pos, Move move);
 

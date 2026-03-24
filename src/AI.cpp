@@ -469,24 +469,8 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
   std::vector<Move> captures = MoveGen::generateCaptures(pos);
 
   // At first qsearch ply, also try checking moves to avoid horizon effect
-  std::vector<Move> checks;
   if (qsDepth == 0 && !inCheck) {
-    std::vector<Move> allMoves = MoveGen::generateLegalMoves(pos);
-    for (Move m : allMoves) {
-      // Skip if already a capture
-      bool isCapture =
-          pos.pieceAt(toSquare(m)) != NO_PIECE || moveType(m) == EN_PASSANT;
-      if (!isCapture) {
-        // Check if move gives check
-        pos.makeMove(m);
-        bool givesCheck = pos.inCheck();
-        pos.unmakeMove();
-        if (givesCheck) {
-          checks.push_back(m);
-        }
-      }
-    }
-    // Merge checks into captures list
+    std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
     captures.insert(captures.end(), checks.begin(), checks.end());
   }
 
