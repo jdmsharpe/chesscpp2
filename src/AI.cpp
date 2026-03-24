@@ -317,24 +317,10 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
 
   int alphaOrig = alpha;
   HashKey hash = pos.hash();
+  Move ttMove = 0;
 
-  // Transposition table lookup
-  size_t ttIndex = hash % TT_SIZE;
-  TTEntry& ttEntry = transpositionTable[ttIndex];
-
-  if (ttEntry.key == hash && ttEntry.depth >= depth) {
-    ttHits++;
-    if (ttEntry.flag == EXACT) {
-      return ttEntry.score;
-    } else if (ttEntry.flag == LOWERBOUND) {
-      alpha = std::max(alpha, ttEntry.score);
-    } else if (ttEntry.flag == UPPERBOUND) {
-      beta = std::min(beta, ttEntry.score);
-    }
-
-    if (alpha >= beta) {
-      return ttEntry.score;
-    }
+  if (auto score = probeTT(hash, depth, alpha, beta, ttMove)) {
+    return *score;
   }
 
   // Quiescence search at leaf nodes
@@ -434,32 +420,21 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     }
   }
 
-  // Move ordering - get TT move if available
-  Move ttMove = 0;
-  if (ttEntry.key == hash) {
-    ttMove = ttEntry.bestMove;
-  }
-
   // Internal Iterative Deepening (IID)
   // If no hash move at PV node, do shallow search to find one
   if (!ttMove && isPVNode && depth >= 4) {
     int iidDepth = depth - 2;
-    // Do shallow search to populate TT with a good move
     (void)negamax(pos, iidDepth, alpha, beta, ply);
-
-    // Try to get the move from TT after shallow search
-    TTEntry& iidEntry = transpositionTable[ttIndex];
-    if (iidEntry.key == hash && iidEntry.bestMove != 0) {
-      ttMove = iidEntry.bestMove;
-      // Validate the move is in our move list
+    // Re-probe TT to get the move found by IID
+    Move iidMove = 0;
+    int tmpAlpha = alpha, tmpBeta = beta;
+    (void)probeTT(hash, depth, tmpAlpha, tmpBeta, iidMove);
+    if (iidMove != 0) {
       bool found = false;
       for (Move m : moves) {
-        if (m == ttMove) {
-          found = true;
-          break;
-        }
+        if (m == iidMove) { found = true; break; }
       }
-      if (!found) ttMove = 0;  // Invalid move, ignore
+      if (found) ttMove = iidMove;
     }
   }
 
@@ -579,30 +554,7 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     }
   }
 
-  // Store in transposition table with depth-preferred replacement
-  TTEntry& entry = transpositionTable[ttIndex];
-
-  // Replace if: empty slot, same position, deeper search, or older entry
-  bool shouldReplace = (entry.key == 0) ||        // Empty slot
-                       (entry.key == hash) ||     // Same position
-                       (entry.depth <= depth) ||  // Deeper search
-                       (entry.age != ttAge);      // Old entry
-
-  if (shouldReplace) {
-    entry.key = hash;
-    entry.depth = depth;
-    entry.score = maxScore;
-    entry.bestMove = bestMove;
-    entry.age = ttAge;
-
-    if (maxScore <= alphaOrig) {
-      entry.flag = UPPERBOUND;
-    } else if (maxScore >= beta) {
-      entry.flag = LOWERBOUND;
-    } else {
-      entry.flag = EXACT;
-    }
-  }
+  storeTT(hash, depth, maxScore, bestMove, alphaOrig, beta);
 
   return maxScore;
 }
@@ -794,6 +746,58 @@ void AI::storeKiller(Move move, int ply) {
 bool AI::isKiller(Move move, int ply) const {
   if (ply >= 64) return false;
   return killerMoves[ply][0] == move || killerMoves[ply][1] == move;
+}
+
+std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove) {
+  size_t ttIndex = hash % TT_SIZE;
+  TTEntry& ttEntry = transpositionTable[ttIndex];
+
+  if (ttEntry.key == hash) {
+    ttMove = ttEntry.bestMove;
+
+    if (ttEntry.depth >= depth) {
+      ttHits++;
+      if (ttEntry.flag == EXACT) {
+        return ttEntry.score;
+      } else if (ttEntry.flag == LOWERBOUND) {
+        alpha = std::max(alpha, ttEntry.score);
+      } else if (ttEntry.flag == UPPERBOUND) {
+        beta = std::min(beta, ttEntry.score);
+      }
+
+      if (alpha >= beta) {
+        return ttEntry.score;
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
+void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta) {
+  size_t ttIndex = hash % TT_SIZE;
+  TTEntry& entry = transpositionTable[ttIndex];
+
+  bool shouldReplace = (entry.key == 0) ||
+                       (entry.key == hash) ||
+                       (entry.depth <= depth) ||
+                       (entry.age != ttAge);
+
+  if (shouldReplace) {
+    entry.key = hash;
+    entry.depth = depth;
+    entry.score = score;
+    entry.bestMove = bestMove;
+    entry.age = ttAge;
+
+    if (score <= alphaOrig) {
+      entry.flag = UPPERBOUND;
+    } else if (score >= beta) {
+      entry.flag = LOWERBOUND;
+    } else {
+      entry.flag = EXACT;
+    }
+  }
 }
 
 // Syzygy tablebase methods
