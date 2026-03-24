@@ -56,7 +56,7 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Magic bitboards | `Magic.h/cpp` | Pre-computed sliding attack tables |
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
 | Search | `AI.h/cpp` | Alpha-beta with helpers: probeTT, storeTT, tryNullMovePruning, canPrune, searchMove; repetition detection with contempt, retreat penalty in move ordering, proper checkmate detection in qsearch |
-| Evaluation | `Eval.h/cpp` | PST (incl. endgame king PST), tapered eval, pawn structure (passed pawn advancement, clear path), king safety, mobility, development, rook-behind-passer, king-passer proximity, mop-up |
+| Evaluation | `Eval.h/cpp` | PST (incl. endgame king PST), tapered eval, pawn structure (passed pawn advancement, clear path), king safety, mobility, development, rook-behind-passer, king-passer proximity, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
 | Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`) |
