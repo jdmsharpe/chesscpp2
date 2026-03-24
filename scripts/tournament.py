@@ -10,6 +10,12 @@ import os
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 
+try:
+    import chess
+    HAS_PYTHON_CHESS = True
+except ImportError:
+    HAS_PYTHON_CHESS = False
+
 # Default paths (relative to project root)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
@@ -113,6 +119,9 @@ class Engine:
     def _send(self, command: str):
         """Send command to engine"""
         assert self.process is not None and self.process.stdin is not None
+        if self.process.poll() is not None:
+            stderr = self.process.stderr.read() if self.process.stderr else ""
+            raise RuntimeError(f"Engine '{self.name}' exited with code {self.process.returncode} before receiving '{command}'\n  stderr: {stderr}")
         self.process.stdin.write(command + "\n")
         self.process.stdin.flush()
 
@@ -137,6 +146,9 @@ class Tournament:
 
     def run_round_robin(self, games_per_pairing: int = 1, depth: int = 6, movetime: Optional[int] = None):
         """Run round-robin tournament"""
+        if not HAS_PYTHON_CHESS:
+            print("WARNING: python-chess not installed — draw adjudication disabled (pip install python-chess)")
+
         total_games = len(self.engines) * (len(self.engines) - 1) * games_per_pairing
         game_num = 0
 
@@ -170,33 +182,70 @@ class Tournament:
 
         position = "startpos"
         moves = []
-        max_moves = 300  # Draw after 300 moves
+        board = chess.Board() if HAS_PYTHON_CHESS else None
+        max_moves = 600  # Safety net only — draw rules should trigger first
 
         try:
             for move_num in range(max_moves):
-                # White's turn
                 current_engine = white if move_num % 2 == 0 else black
                 move = current_engine.get_move(position, moves, depth, movetime)
 
                 if not move or move == "0000" or move == "(none)":
-                    # No legal moves - game over
+                    # Engine returned no move — use board to distinguish checkmate vs stalemate
+                    if board is not None:
+                        if board.is_checkmate():
+                            winner = black.name if move_num % 2 == 0 else white.name
+                            result_str = "0-1" if move_num % 2 == 0 else "1-0"
+                            print(f"  Result: {winner} wins by checkmate")
+                            return GameResult(white.name, black.name, result_str, len(moves), "checkmate")
+                        elif board.is_stalemate():
+                            print(f"  Result: Draw (stalemate)")
+                            return GameResult(white.name, black.name, "1/2-1/2", len(moves), "stalemate")
+
+                    # Fallback without python-chess: assume checkmate
                     if move_num % 2 == 0:
-                        # White is in checkmate/stalemate
-                        result = GameResult(white.name, black.name, "0-1", len(moves), "checkmate")
                         print(f"  Result: {black.name} wins by checkmate")
+                        return GameResult(white.name, black.name, "0-1", len(moves), "checkmate")
                     else:
-                        # Black is in checkmate/stalemate
-                        result = GameResult(white.name, black.name, "1-0", len(moves), "checkmate")
                         print(f"  Result: {white.name} wins by checkmate")
-                    return result
+                        return GameResult(white.name, black.name, "1-0", len(moves), "checkmate")
 
                 moves.append(move)
+
+                # Update board for draw detection
+                if board is not None:
+                    try:
+                        board.push_uci(move)
+                    except ValueError:
+                        print(f"  Warning: illegal move '{move}' from {current_engine.name}, ply {len(moves)}")
+                        loser = white.name if move_num % 2 == 0 else black.name
+                        winner = black.name if move_num % 2 == 0 else white.name
+                        result_str = "0-1" if move_num % 2 == 0 else "1-0"
+                        print(f"  Result: {winner} wins by forfeit (illegal move)")
+                        return GameResult(white.name, black.name, result_str, len(moves), f"illegal move: {move}")
+
+                    # --- Draw adjudication ---
+                    if board.is_fivefold_repetition():
+                        print(f"  Result: Draw (fivefold repetition) at ply {len(moves)}")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "fivefold repetition")
+
+                    if board.is_repetition(3):
+                        print(f"  Result: Draw (threefold repetition) at ply {len(moves)}")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "threefold repetition")
+
+                    if board.is_fifty_moves():
+                        print(f"  Result: Draw (50-move rule) at ply {len(moves)}")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "50-move rule")
+
+                    if board.is_insufficient_material():
+                        print(f"  Result: Draw (insufficient material) at ply {len(moves)}")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "insufficient material")
 
                 # Print progress every 10 moves
                 if len(moves) % 10 == 0:
                     print(f"  Move {len(moves)}: {move}")
 
-            # Max moves reached - draw
+            # Safety net — should rarely reach here with draw adjudication active
             result = GameResult(white.name, black.name, "1/2-1/2", len(moves), "max moves")
             print(f"  Result: Draw (max moves)")
             return result
@@ -229,6 +278,15 @@ class Tournament:
             losses = games_played - wins - draws
 
             print(f"{name:40s} {score:5.1f} (+{wins} ={draws} -{losses})")
+
+        # Draw reason breakdown
+        draw_results = [r for r in self.results if r.result == "1/2-1/2"]
+        if draw_results:
+            reasons = {}
+            for r in draw_results:
+                reasons[r.reason] = reasons.get(r.reason, 0) + 1
+            reason_parts = [f"{reason}: {count}" for reason, count in sorted(reasons.items())]
+            print(f"  Draws: {', '.join(reason_parts)}")
         print("=" * 60)
 
 
