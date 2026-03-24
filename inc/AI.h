@@ -121,9 +121,9 @@ class AI {
   int quiescence(Position& pos, int alpha, int beta, int qsDepth = 0);
 
   // Move ordering for better pruning
-  void orderMoves(Position& pos, std::vector<Move>& moves, int ply,
-                  Move ttMove = 0);
-  int getMoveScore(const Position& pos, Move move, int ply, Move ttMove);
+  std::vector<ScoredMove> orderMoves(Position& pos, const std::vector<Move>& moves,
+                                     int ply, Move ttMove = 0);
+  ScoredMove scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove);
 
   // Update history heuristic
   void updateHistory(Move move, int depth);

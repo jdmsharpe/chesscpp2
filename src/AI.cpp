@@ -246,7 +246,11 @@ Move AI::findBestMove(Position& pos) {
     }
 
     // Order moves based on previous iteration's best move
-    orderMoves(pos, rootMoves, 0, bestMove);
+    auto scoredRootMoves = orderMoves(pos, rootMoves, 0, bestMove);
+    rootMoves.clear();
+    for (const auto& sm : scoredRootMoves) {
+      rootMoves.push_back(sm.move);
+    }
 
     Move iterBestMove = rootMoves[0];
     int iterBestScore = std::numeric_limits<int>::min();
@@ -370,14 +374,14 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     }
   }
 
-  orderMoves(pos, moves, ply, ttMove);
+  auto scoredMoves = orderMoves(pos, moves, ply, ttMove);
 
   int maxScore = std::numeric_limits<int>::min();
-  Move bestMove = moves[0];
+  Move bestMove = scoredMoves[0].move;
   pvLength[ply] = 0;  // Initialize PV length
 
-  for (size_t moveNum = 0; moveNum < moves.size(); ++moveNum) {
-    Move move = moves[moveNum];
+  for (size_t moveNum = 0; moveNum < scoredMoves.size(); ++moveNum) {
+    Move move = scoredMoves[moveNum].move;
 
     bool isCapture = pos.pieceAt(toSquare(move)) != NO_PIECE ||
                      moveType(move) == EN_PASSANT;
@@ -474,105 +478,101 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     captures.insert(captures.end(), checks.begin(), checks.end());
   }
 
-  // Order captures by SEE
-  std::sort(captures.begin(), captures.end(), [&](Move a, Move b) {
-    return getMoveScore(pos, a, 0, 0) > getMoveScore(pos, b, 0, 0);
-  });
+  // Build ScoredMove list with cached SEE
+  std::vector<ScoredMove> scoredCaptures;
+  scoredCaptures.reserve(captures.size());
+  for (Move m : captures) {
+    scoredCaptures.push_back(scoreMoveWithSEE(pos, m, 0, 0));
+  }
+  std::sort(scoredCaptures.begin(), scoredCaptures.end(),
+            [](const ScoredMove& a, const ScoredMove& b) {
+              return a.score > b.score;
+            });
 
-  for (Move move : captures) {
-    // SEE pruning - skip obviously losing captures
-    int seeValue = pos.see(move);
-    if (seeValue < 0) {
-      continue;  // Skip bad captures
+  for (const ScoredMove& sm : scoredCaptures) {
+    // SEE pruning — use cached value
+    if (sm.seeValue != std::numeric_limits<int>::min() && sm.seeValue < 0) {
+      continue;
     }
 
-    // Futility pruning - even if this capture succeeds, can it improve alpha?
-    Square to = toSquare(move);
+    // Futility pruning
+    Square to = toSquare(sm.move);
     Piece captured = pos.pieceAt(to);
     if (captured != NO_PIECE) {
       static const int pieceValues[6] = {100, 320, 330, 500, 900, 20000};
       if (standPat + pieceValues[typeOf(captured)] + 200 < alpha) {
-        continue;  // Even capturing this piece won't help
+        continue;
       }
     }
 
-    pos.makeMove(move);
+    pos.makeMove(sm.move);
     int score = -quiescence(pos, -beta, -alpha, qsDepth + 1);
     pos.unmakeMove();
 
-    if (score >= beta) {
-      return beta;
-    }
-
-    if (score > alpha) {
-      alpha = score;
-    }
+    if (score >= beta) return beta;
+    if (score > alpha) alpha = score;
   }
 
   return alpha;
 }
 
-int AI::getMoveScore(const Position& pos, Move move, int ply, Move ttMove) {
-  // Hash move gets highest priority
+ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove) {
+  ScoredMove sm;
+  sm.move = move;
+  sm.seeValue = std::numeric_limits<int>::min();  // not computed
+
   if (move == ttMove) {
-    return 1000000;
+    sm.score = 1000000;
+    return sm;
   }
 
-  int score = 0;
+  sm.score = 0;
   Square from = fromSquare(move);
   Square to = toSquare(move);
   Piece captured = pos.pieceAt(to);
 
-  // Prioritize captures using SEE
   if (captured != NO_PIECE || moveType(move) == EN_PASSANT) {
-    // Use Static Exchange Evaluation for accurate capture ordering
-    int seeValue = pos.see(move);
-
-    if (seeValue > 0) {
-      // Good capture - search early
-      score += 20000 + seeValue;
-    } else if (seeValue == 0) {
-      // Equal trade - search after good captures but before quiet moves
-      score += 10000;
+    sm.seeValue = pos.see(move);  // compute and cache SEE
+    if (sm.seeValue > 0) {
+      sm.score = 20000 + sm.seeValue;
+    } else if (sm.seeValue == 0) {
+      sm.score = 10000;
     } else {
-      // Bad capture - search after quiet moves
-      score += 5000 + seeValue;  // seeValue is negative, so this lowers score
+      sm.score = 5000 + sm.seeValue;
     }
   } else {
-    // Quiet moves (non-captures)
-
-    // Countermove heuristic (moves that refute previous move)
+    // Quiet moves — same as before
     if (ply > 0 && pvLength[ply - 1] > 0) {
       Move prevMove = pvTable[ply - 1][0];
       Move countermove = countermoves[fromSquare(prevMove)][toSquare(prevMove)];
       if (move == countermove) {
-        score += 9500;  // Slightly higher than killer moves
+        sm.score = 9500;
       }
     }
-
-    // Killer moves
     if (isKiller(move, ply)) {
-      score += 9000;
+      sm.score += 9000;
     }
-
-    // History heuristic
-    score += historyTable[from][to];
+    sm.score += historyTable[from][to];
   }
 
-  // Prioritize promotions
   if (moveType(move) == PROMOTION) {
-    score += 15000;
+    sm.score += 15000;
   }
 
-  return score;
+  return sm;
 }
 
-void AI::orderMoves(Position& pos, std::vector<Move>& moves, int ply,
-                    Move ttMove) {
-  std::sort(moves.begin(), moves.end(), [&](Move a, Move b) {
-    return getMoveScore(pos, a, ply, ttMove) >
-           getMoveScore(pos, b, ply, ttMove);
+std::vector<ScoredMove> AI::orderMoves(Position& pos, const std::vector<Move>& moves,
+                                       int ply, Move ttMove) {
+  std::vector<ScoredMove> scored;
+  scored.reserve(moves.size());
+  for (Move m : moves) {
+    scored.push_back(scoreMoveWithSEE(pos, m, ply, ttMove));
+  }
+  std::sort(scored.begin(), scored.end(), [](const ScoredMove& a, const ScoredMove& b) {
+    return a.score > b.score;
   });
+  return scored;
 }
 
 void AI::updateHistory(Move move, int depth) {
