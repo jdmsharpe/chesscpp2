@@ -19,11 +19,15 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ```bash
 # From build/ directory
-ctest                          # Run all tests
-./test/test_bitboard           # Bitboard tests
-./test/test_movegen            # Move generation tests
-./test/test_position           # Position/make-unmake tests
+ctest                          # Run all tests (146 tests)
+./test/test_bitboard           # Bitboard operations
+./test/test_movegen            # Move generation + generateCheckingMoves
+./test/test_position           # Position/make-unmake/SEE/draw detection
 ./test/test_polyglot           # Polyglot book tests
+./test/test_eval               # Evaluation function (material, PST, pawn structure, king safety)
+./test/test_ai                 # Search (mate detection, TT, time management, move ordering)
+./test/test_uci                # UCI protocol (command parsing, options, handshake)
+./test/test_game               # Game logic (moves, draws, checkmate, stalemate, special moves)
 
 # From repo root
 bash scripts/verify_perft.sh   # Verify perft node counts against known values (CI uses this)
@@ -51,7 +55,8 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Move generation | `MoveGen.h/cpp` | Pseudo-legal → legality filter |
 | Magic bitboards | `Magic.h/cpp` | Pre-computed sliding attack tables |
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
-| Search/eval | `AI.h/cpp` | Alpha-beta, TT, killer/history, LMR, null move pruning, quiescence |
+| Search | `AI.h/cpp` | Alpha-beta with helpers: probeTT, storeTT, tryNullMovePruning, canPrune, searchMove |
+| Evaluation | `Eval.h/cpp` | PST, tapered eval, pawn structure, king safety, mobility, development |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
 | Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`) |
@@ -99,6 +104,8 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 ## Design Documents
 
 - `docs/plans/2025-10-30-lazy-smp-multithreading-design.md` — Lazy SMP parallel search (not yet implemented)
+- `docs/superpowers/specs/2026-03-23-ai-refactor-and-perf-design.md` — AI.cpp refactor + performance wins (completed)
+- `docs/superpowers/plans/2026-03-23-ai-refactor-and-perf.md` — Implementation plan for the above
 
 ## Known Issues
 
