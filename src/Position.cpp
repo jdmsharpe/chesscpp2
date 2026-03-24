@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "Bitboard.h"
+#include "Logger.h"
 #include "Magic.h"
 #include "Zobrist.h"
 
@@ -446,8 +447,13 @@ void Position::unmakeNullMove() {
 }
 
 bool Position::inCheck() const {
-  Square kingSq = BB::lsb(pieces(stm, KING));
-  return isAttacked(kingSq, ~stm);
+  Bitboard kings = pieces(stm, KING);
+  if (!kings) {
+    Logger::getInstance().error(
+        "Illegal position detected: no king found for side to move");
+    return false;
+  }
+  return isAttacked(BB::lsb(kings), ~stm);
 }
 
 bool Position::isAttacked(Square sq, Color attackerColor) const {

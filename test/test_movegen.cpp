@@ -360,3 +360,54 @@ TEST_F(MoveGenTest, CheckingMoves_BruteForceComparison) {
         << "Mismatch in moves for position: " << fen;
   }
 }
+
+// =============================================================================
+// Illegal Position Handling (no crash / no king captures)
+// =============================================================================
+
+TEST_F(MoveGenTest, IllegalPosition_KingInCheck_NoKingCapture) {
+  // Black king is already in check from white queen — illegal position, but
+  // the engine must not generate king-capture moves or crash.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
+
+  std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
+  EXPECT_FALSE(moves.empty()) << "Should still generate legal moves";
+
+  for (Move m : moves) {
+    Square to = toSquare(m);
+    Piece captured = pos.pieceAt(to);
+    EXPECT_TRUE(captured == NO_PIECE || typeOf(captured) != KING)
+        << "Move " << moveToString(m) << " captures the king";
+  }
+}
+
+TEST_F(MoveGenTest, IllegalPosition_KingInCheck_BlackToMove) {
+  // White king is already in check — illegal position from black's perspective.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1k6/8/K1q5 b - - 0 1"));
+
+  std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
+  EXPECT_FALSE(moves.empty());
+
+  for (Move m : moves) {
+    Square to = toSquare(m);
+    Piece captured = pos.pieceAt(to);
+    EXPECT_TRUE(captured == NO_PIECE || typeOf(captured) != KING)
+        << "Move " << moveToString(m) << " captures the king";
+  }
+}
+
+TEST_F(MoveGenTest, IllegalPosition_KingCaptureFilteredFromCaptures) {
+  // Verify generateCaptures also filters out king captures.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
+
+  std::vector<Move> captures = MoveGen::generateCaptures(pos);
+  for (Move m : captures) {
+    Square to = toSquare(m);
+    Piece captured = pos.pieceAt(to);
+    EXPECT_TRUE(captured == NO_PIECE || typeOf(captured) != KING)
+        << "Capture " << moveToString(m) << " captures the king";
+  }
+}
