@@ -276,7 +276,7 @@ Potential improvements:
 - [x] Search decomposed into 5 named helpers (probeTT, storeTT, tryNullMovePruning, canPrune, searchMove)
 - [x] SEE caching via ScoredMove struct (eliminates redundant SEE in quiescence)
 - [x] Efficient checking move generation for quiescence search
-- [x] Comprehensive test suite (158 tests: eval, search, UCI, game logic, move generation)
+- [x] Comprehensive test suite (162 tests: eval, search, UCI, game logic, move generation)
 - [x] Syzygy tablebase probing during search (implemented — WDL probe at depth >= 2)
 - [ ] Lazy SMP multithreading (designed, not yet implemented — see `docs/plans/`)
 - [ ] Endgame-specific knowledge (K+R vs K technique, opposition, pawn endgame rules)
