@@ -19,7 +19,7 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ```bash
 # From build/ directory
-ctest                          # Run all tests (158 tests)
+ctest                          # Run all tests (162 tests)
 ./test/test_bitboard           # Bitboard operations
 ./test/test_movegen            # Move generation + generateCheckingMoves
 ./test/test_position           # Position/make-unmake/SEE/draw detection
