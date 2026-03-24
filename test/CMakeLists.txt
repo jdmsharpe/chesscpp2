@@ -15,123 +15,67 @@ enable_testing()
 # Override compiler to avoid distcc issues with tests
 set(CMAKE_CXX_COMPILER_LAUNCHER "")
 
-# Bitboard tests
+# Shared static libraries to avoid recompiling the same sources per test target
+# "chess_core" — board, movegen, bitboards (no AI/eval dependency)
+add_library(chess_core STATIC
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+)
+target_include_directories(chess_core PUBLIC ../inc)
+
+# "chess_engine" — full engine (core + eval + AI + books + tablebases)
+add_library(chess_engine STATIC
+    ../src/AI.cpp
+    ../src/Eval.cpp
+    ../src/Game.cpp
+    ../src/UCI.cpp
+    ../src/Polyglot.cpp
+    ../src/Tablebase.cpp
+)
+target_include_directories(chess_engine PUBLIC ../inc ../lib/Fathom/src)
+target_link_libraries(chess_engine PUBLIC chess_core fathom)
+
+# --- Test targets ---
+
+# Bitboard tests (only needs Bitboard.cpp directly)
 add_executable(test_bitboard test_bitboard.cpp ../src/Bitboard.cpp)
 target_include_directories(test_bitboard PRIVATE ../inc)
 target_link_libraries(test_bitboard PRIVATE GTest::gtest_main pthread)
 
 # MoveGen tests
-add_executable(test_movegen
-    test_movegen.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-)
-target_include_directories(test_movegen PRIVATE ../inc)
-target_link_libraries(test_movegen PRIVATE GTest::gtest_main pthread)
+add_executable(test_movegen test_movegen.cpp)
+target_link_libraries(test_movegen PRIVATE chess_core GTest::gtest_main pthread)
 
 # Position tests (draw detection, make/unmake, SEE)
-add_executable(test_position
-    test_position.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-)
-target_include_directories(test_position PRIVATE ../inc)
-target_link_libraries(test_position PRIVATE GTest::gtest_main pthread)
+add_executable(test_position test_position.cpp)
+target_link_libraries(test_position PRIVATE chess_core GTest::gtest_main pthread)
 
 # Perft benchmark suite (standalone tool, not a test)
-add_executable(perft_suite
-    perft_suite.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-)
-target_include_directories(perft_suite PRIVATE ../inc)
-target_link_libraries(perft_suite PRIVATE pthread)
+add_executable(perft_suite perft_suite.cpp)
+target_link_libraries(perft_suite PRIVATE chess_core pthread)
 
 # Polyglot tests
-add_executable(test_polyglot
-    test_polyglot.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-    ../src/Polyglot.cpp
-)
-target_include_directories(test_polyglot PRIVATE ../inc)
-target_link_libraries(test_polyglot PRIVATE GTest::gtest_main pthread)
+add_executable(test_polyglot test_polyglot.cpp ../src/Polyglot.cpp)
+target_link_libraries(test_polyglot PRIVATE chess_core GTest::gtest_main pthread)
 
 # Eval tests
-add_executable(test_eval
-    test_eval.cpp
-    ../src/Eval.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-)
-target_include_directories(test_eval PRIVATE ../inc)
-target_link_libraries(test_eval PRIVATE GTest::gtest_main pthread)
+add_executable(test_eval test_eval.cpp ../src/Eval.cpp)
+target_link_libraries(test_eval PRIVATE chess_core GTest::gtest_main pthread)
 
 # AI tests
-add_executable(test_ai
-    test_ai.cpp
-    ../src/AI.cpp
-    ../src/Eval.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-    ../src/Polyglot.cpp
-    ../src/Tablebase.cpp
-)
-target_include_directories(test_ai PRIVATE ../inc ../lib/Fathom/src)
-target_link_libraries(test_ai PRIVATE GTest::gtest_main fathom pthread)
+add_executable(test_ai test_ai.cpp)
+target_link_libraries(test_ai PRIVATE chess_engine GTest::gtest_main pthread)
 
 # UCI tests
-add_executable(test_uci
-    test_uci.cpp
-    ../src/UCI.cpp
-    ../src/Game.cpp
-    ../src/AI.cpp
-    ../src/Eval.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-    ../src/Polyglot.cpp
-    ../src/Tablebase.cpp
-)
-target_include_directories(test_uci PRIVATE ../inc ../lib/Fathom/src)
-target_link_libraries(test_uci PRIVATE GTest::gtest_main fathom pthread)
+add_executable(test_uci test_uci.cpp)
+target_link_libraries(test_uci PRIVATE chess_engine GTest::gtest_main pthread)
 
 # Game tests
-add_executable(test_game
-    test_game.cpp
-    ../src/Game.cpp
-    ../src/AI.cpp
-    ../src/Eval.cpp
-    ../src/Bitboard.cpp
-    ../src/Magic.cpp
-    ../src/Zobrist.cpp
-    ../src/Position.cpp
-    ../src/MoveGen.cpp
-    ../src/Polyglot.cpp
-    ../src/Tablebase.cpp
-)
-target_include_directories(test_game PRIVATE ../inc ../lib/Fathom/src)
-target_link_libraries(test_game PRIVATE GTest::gtest_main fathom pthread)
+add_executable(test_game test_game.cpp)
+target_link_libraries(test_game PRIVATE chess_engine GTest::gtest_main pthread)
 
 # Discover tests
 include(GoogleTest)

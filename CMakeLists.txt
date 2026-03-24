@@ -4,11 +4,15 @@ project(chesscpp2 VERSION 1.0.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_BUILD_TYPE RelWithDebInfo)
+# Default build type if not specified (allows user override via -DCMAKE_BUILD_TYPE=...)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
+endif()
 
-# Compiler flags for optimization
+# Compiler warnings (all build types)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -O3 -march=native)
+    add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # Find SDL2
@@ -62,7 +66,12 @@ set(HEADERS
 # Main executable
 add_executable(chesscpp2 ${SOURCES} ${HEADERS})
 target_include_directories(chesscpp2 PRIVATE inc ${SDL2_INCLUDE_DIRS} lib/Fathom/src)
-target_link_libraries(chesscpp2 PRIVATE ${SDL2_LIBRARIES} SDL2_image stdc++ fathom)
+target_link_libraries(chesscpp2 PRIVATE ${SDL2_LIBRARIES} SDL2_image fathom)
+
+# Performance flags for the engine (not applied to tests or debug builds)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(chesscpp2 PRIVATE -O3 -march=native)
+endif()
 
 # Tests
 enable_testing()

@@ -107,6 +107,13 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 - `docs/superpowers/specs/2026-03-23-ai-refactor-and-perf-design.md` — AI.cpp refactor + performance wins (completed)
 - `docs/superpowers/plans/2026-03-23-ai-refactor-and-perf.md` — Implementation plan for the above
 
+## Build System Notes
+
+- Build type defaults to `RelWithDebInfo` but can be overridden: `cmake -DCMAKE_BUILD_TYPE=Release ..`
+- `-O3 -march=native` applied only to the main executable, not test targets
+- Test CMakeLists uses shared static libraries (`chess_core`, `chess_engine`) to avoid recompiling sources per test target
+- CI runs Release, Debug, and sanitizer (ASan+UBSan) builds
+
 ## Known Issues
 
 1. Fullmove counter can desync if unmakeMove logic is incorrect
