@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "Bitboard.h"
+#include "Logger.h"
 #include "Magic.h"
 
 namespace MoveGen {
@@ -193,6 +194,9 @@ bool isLegal(Position& pos, Move move) {
   Square to = toSquare(move);
   Piece captured = pos.pieceAt(to);
   if (captured != NO_PIECE && typeOf(captured) == KING) {
+    Logger::getInstance().error(
+        "Illegal position detected: move " + moveToString(move) +
+        " captures the opponent's king (opponent was left in check)");
     return false;
   }
 

@@ -334,3 +334,37 @@ TEST_F(PositionTest, SEE_EqualExchange) {
     EXPECT_LE(see, 50);
   }
 }
+
+// =============================================================================
+// Illegal Position Safety Tests
+// =============================================================================
+
+TEST_F(PositionTest, InCheck_NoKing_ReturnsFalse) {
+  // Position with no black king — inCheck() must not crash, should return false.
+  // We simulate this by setting up a position, making a king-capturing move
+  // via makeMove, then calling inCheck on the resulting (corrupt) position.
+  Position pos;
+  // Black king on a1, white queen on c1, white king on b3 — queen can
+  // capture king.  After the capture, black has no king.
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
+
+  // Find the pseudo-legal Qc1xa1 move manually
+  std::vector<Move> pseudoMoves = MoveGen::generatePseudoLegalMoves(pos);
+  Move kingCapture = 0;
+  for (Move m : pseudoMoves) {
+    if (fromSquare(m) == C1 && toSquare(m) == A1) {
+      kingCapture = m;
+      break;
+    }
+  }
+  ASSERT_NE(kingCapture, 0) << "Qc1xa1 should be pseudo-legal";
+
+  // Make the king-capturing move — puts us in an illegal state
+  pos.makeMove(kingCapture);
+
+  // inCheck() must not crash and should return false (no king to be in check)
+  EXPECT_FALSE(pos.inCheck());
+
+  // Clean up — unmake the move to restore valid state
+  pos.unmakeMove();
+}
