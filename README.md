@@ -40,7 +40,11 @@ An improved chess engine implementation using bitboards for fast move generation
 ```bash
 mkdir build
 cd build
-cmake ..
+cmake ..              # defaults to RelWithDebInfo
+cmake --build .
+
+# Or specify build type:
+cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build .
 ```
 
