@@ -15,13 +15,13 @@ print("=" * 60)
 chesscpp = Engine(
     name="Chess++ Depth-12",
     path=f"{PROJECT_ROOT}/build/chesscpp2 --uci",
-    options={"Depth": "12"},
+    options={"Depth": "12", "Hash": "64"},
 )
 
 stockfish = Engine(
     name="Stockfish Level-6",
     path=f"{PROJECT_ROOT}/stockfish/stockfish-ubuntu-x86-64-avx2",
-    options={"Skill Level": "6"},
+    options={"Skill Level": "6", "Hash": "64"},
 )
 
 tournament = Tournament([chesscpp, stockfish])

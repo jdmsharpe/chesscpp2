@@ -79,6 +79,7 @@ void UCI::loop() {
 void UCI::handleUCI() {
   std::cout << "id name Chess++ Bitboards" << std::endl;
   std::cout << "id author Chess++ Team" << std::endl;
+  std::cout << "option name Hash type spin default 128 min 1 max 4096" << std::endl;
   std::cout << "option name Debug type check default false" << std::endl;
   std::cout << "option name Depth type spin default 6 min 1 max 20" << std::endl;
   std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
@@ -277,7 +278,15 @@ void UCI::handleSetOption(const std::string& args) {
   std::string value;
   iss >> value;
 
-  if (name == "Debug") {
+  if (name == "Hash") {
+    int mb = std::stoi(value);
+    if (mb < 1) mb = 1;
+    if (mb > 4096) mb = 4096;
+    game.resizeHash(mb);
+    if (debug) {
+      std::cout << "info string Hash table resized to " << mb << " MB" << std::endl;
+    }
+  } else if (name == "Debug") {
     debug = (value == "true");
   } else if (name == "Depth") {
     searchDepth = std::stoi(value);
