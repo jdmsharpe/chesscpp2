@@ -119,9 +119,6 @@ class AI {
   // Quiescence search for tactical positions
   int quiescence(Position& pos, int alpha, int beta, int qsDepth = 0);
 
-  // Position evaluation
-  int evaluate(const Position& pos);
-
   // Move ordering for better pruning
   void orderMoves(Position& pos, std::vector<Move>& moves, int ply,
                   Move ttMove = 0);
@@ -136,13 +133,4 @@ class AI {
   // Check if move is killer
   bool isKiller(Move move, int ply) const;
 
-  // Evaluation helper functions
-  int evaluatePawnStructure(const Position& pos, Color c) const;
-  int evaluateKingSafety(const Position& pos, Color c) const;
-  int evaluateMobility(const Position& pos, Color c);
-  int evaluateDevelopment(const Position& pos, Color c) const;
-  int evaluateRooks(const Position& pos, Color c) const;
-  int evaluateBishops(const Position& pos, Color c) const;
-  int evaluateKnights(const Position& pos, Color c) const;
-  int getGamePhase(const Position& pos) const;
 };

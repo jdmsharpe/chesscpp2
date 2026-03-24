@@ -29,6 +29,7 @@ set_target_properties(fathom PROPERTIES C_STANDARD 99)
 set(SOURCES
     src/AI.cpp
     src/Bitboard.cpp
+    src/Eval.cpp
     src/Game.cpp
     src/Magic.cpp
     src/MoveGen.cpp
@@ -45,6 +46,7 @@ set(SOURCES
 set(HEADERS
     inc/AI.h
     inc/Bitboard.h
+    inc/Eval.h
     inc/Game.h
     inc/Magic.h
     inc/MoveGen.h
