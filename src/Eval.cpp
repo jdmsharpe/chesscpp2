@@ -124,9 +124,8 @@ static int evaluatePawnStructure(const Position& pos, Color c) {
       // Ranks 2-7 for white (1-6 for black): the closer to promotion, the
       // more dangerous. A pawn on rank 7 is worth far more than rank 4.
       int advancement = c == WHITE ? rank - 1 : 6 - rank;  // 0-5 scale
-      // Exponential curve: stronger bonuses for advanced passers
-      // A pawn on rank 7 is extremely dangerous and nearly promoting
-      static constexpr int advancementBonus[6] = {10, 20, 35, 60, 100, 180};
+      // Exponential curve: [0]=10, [1]=15, [2]=25, [3]=40, [4]=70, [5]=120
+      static constexpr int advancementBonus[6] = {10, 15, 25, 40, 70, 120};
       int bonus = advancementBonus[advancement];
 
       // Extra bonus if the path ahead is clear (no blockers on the file)
@@ -139,7 +138,7 @@ static int evaluatePawnStructure(const Position& pos, Color c) {
           pathAhead |= BB::squareBB(r * 8 + file);
       }
       if (!(pos.occupied() & pathAhead)) {
-        bonus += 25;  // Clear path — pawn can advance freely
+        bonus += 15;  // Clear path — pawn can advance freely
       }
 
       score += 20 + bonus;
@@ -747,8 +746,8 @@ int evaluate(const Position& pos) {
   // add king-pawn proximity (king escorts passers)
   int endgameScore = material + (positional / 2) + kingPositionalEG +
                      (mobility / 2) + (kingSafety / 4) +
-                     (pawnStructure * 2) + (rookScore * 3 / 2) +
-                     bishopScore + knightScore + (kingPawnProx * 2);
+                     (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
+                     bishopScore + knightScore + kingPawnProx;
 
   // Interpolate between opening and endgame
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
