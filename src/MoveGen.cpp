@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "Bitboard.h"
+#include "Logger.h"
 #include "Magic.h"
 
 namespace MoveGen {
@@ -188,12 +189,24 @@ std::vector<Move> generatePseudoLegalMoves(const Position& pos) {
 }
 
 bool isLegal(Position& pos, Move move) {
+  // Never allow capturing the opponent's king — if this is possible,
+  // the position is illegal (opponent left themselves in check).
+  Square to = toSquare(move);
+  Piece captured = pos.pieceAt(to);
+  if (captured != NO_PIECE && typeOf(captured) == KING) {
+    Logger::getInstance().error(
+        "Illegal position detected: move " + moveToString(move) +
+        " captures the opponent's king (opponent was left in check)");
+    return false;
+  }
+
   // Make the move
   Color us = pos.sideToMove();
   pos.makeMove(move);
 
   // Check if our king is in check (illegal)
-  bool legal = !pos.isAttacked(BB::lsb(pos.pieces(us, KING)), pos.sideToMove());
+  Bitboard ourKings = pos.pieces(us, KING);
+  bool legal = ourKings && !pos.isAttacked(BB::lsb(ourKings), pos.sideToMove());
 
   // Unmake the move
   pos.unmakeMove();
@@ -250,7 +263,8 @@ std::vector<Move> generateCheckingMoves(Position& pos) {
 
     bool givesCheck = pos.inCheck();
     // Also verify legality: our king must not be in check
-    bool legal = !pos.isAttacked(BB::lsb(pos.pieces(us, KING)), pos.sideToMove());
+    Bitboard ourKings = pos.pieces(us, KING);
+    bool legal = ourKings && !pos.isAttacked(BB::lsb(ourKings), pos.sideToMove());
 
     pos.unmakeMove();
 
