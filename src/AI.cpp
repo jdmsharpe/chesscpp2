@@ -334,6 +334,21 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     }
   }
 
+  // Syzygy WDL probe during search — gives perfect eval when piece count
+  // is within tablebase range. Only probe at depth >= 2 to limit overhead,
+  // and skip root (handled separately with DTZ probe for best move).
+  if (ply > 0 && depth >= 2 && Tablebase::available() && Tablebase::canProbe(pos)
+      && pos.castlingRights() == 0) {
+    TBResult wdl = Tablebase::probeWDL(pos);
+    if (wdl != TB_RESULT_UNKNOWN) {
+      int tbScore = Tablebase::wdlToScore(wdl, ply);
+      // For wins/losses, treat as exact bound. For draws, also exact.
+      // Store in TT so we don't re-probe the same position.
+      storeTT(pos.hash(), depth, tbScore, 0, alpha, beta);
+      return tbScore;
+    }
+  }
+
   int alphaOrig = alpha;
   HashKey hash = pos.hash();
   Move ttMove = 0;

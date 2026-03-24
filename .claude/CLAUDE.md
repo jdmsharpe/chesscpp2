@@ -19,7 +19,7 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ```bash
 # From build/ directory
-ctest                          # Run all tests (154 tests)
+ctest                          # Run all tests (158 tests)
 ./test/test_bitboard           # Bitboard operations
 ./test/test_movegen            # Move generation + generateCheckingMoves
 ./test/test_position           # Position/make-unmake/SEE/draw detection
@@ -59,7 +59,7 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Evaluation | `Eval.h/cpp` | PST (incl. endgame king PST), tapered eval, pawn structure (passed pawn advancement, clear path), king safety, mobility, development, rook-behind-passer, king-passer proximity, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
-| Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`) |
+| Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`), WDL probed during search (depth ≥ 2) + DTZ at root |
 | Zobrist hashing | `Zobrist.h/cpp` | Position hashing for TT and repetition |
 | GUI | `Window.h/cpp` | SDL2 rendering |
 | Game logic | `Game.h/cpp` | Game controller, draw detection, rules |
