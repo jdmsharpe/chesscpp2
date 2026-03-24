@@ -138,6 +138,14 @@ class AI {
   // Returns beta if null move causes cutoff, nullopt otherwise.
   std::optional<int> tryNullMovePruning(Position& pos, int depth, int beta, int ply);
 
+  // Search helper: check static pruning conditions
+  struct PruningResult {
+    bool cutoff;         // true = return score immediately
+    int score;           // only valid if cutoff == true
+    bool futilityPrune;  // true = skip quiet moves in move loop
+  };
+  PruningResult canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode);
+
   // Search helper: probe transposition table
   // Returns score if TT produces a cutoff, nullopt otherwise.
   // Sets ttMove if the position is found.

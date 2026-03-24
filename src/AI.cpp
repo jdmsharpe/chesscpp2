@@ -333,44 +333,11 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     return *score;
   }
 
-  // Determine if this is a PV node (wide window = principal variation)
   bool isPVNode = (beta - alpha) > 1;
 
-  // Reverse Futility Pruning (Static Null Move Pruning)
-  // If position is so good that even with a margin we're above beta, prune
-  if (depth <= 6 && !isPVNode && !pos.inCheck()) {
-    int eval = Eval::evaluate(pos);
-    int rfpMargin = 100 * depth;  // 100, 200, 300... 600 for depths 1-6
-    if (eval - rfpMargin >= beta) {
-      return eval;  // Position too good, opponent won't allow this line
-    }
-  }
-
-  // Razoring
-  // If position is so bad that even qsearch can't save it, return qsearch score
-  if (depth <= 3 && !isPVNode && !pos.inCheck()) {
-    int eval = Eval::evaluate(pos);
-    int razoringMargin = 300 + 150 * depth;  // 450, 600, 750 for depths 1-3
-    if (eval + razoringMargin < alpha) {
-      int qscore = quiescence(pos, alpha, beta, 0);
-      if (qscore < alpha) {
-        return qscore;
-      }
-    }
-  }
-
-  // Futility Pruning
-  // At shallow depths, if position is so bad that even gaining material won't
-  // help, skip quiet moves
-  bool futilityPrune = false;
-  if (depth <= 3 && !pos.inCheck()) {
-    int futilityMargin = 100 + 200 * depth;  // 300, 500, 700 for depths 1-3
-    int futilityValue = Eval::evaluate(pos) + futilityMargin;
-
-    if (futilityValue <= alpha) {
-      futilityPrune = true;
-    }
-  }
+  auto pruning = canPrune(pos, depth, alpha, beta, isPVNode);
+  if (pruning.cutoff) return pruning.score;
+  bool futilityPrune = pruning.futilityPrune;
 
   std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
 
@@ -752,6 +719,48 @@ std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int beta, in
   }
 
   return std::nullopt;
+}
+
+AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode) {
+  PruningResult result = {false, 0, false};
+
+  if (pos.inCheck()) return result;
+
+  int eval = Eval::evaluate(pos);
+
+  // Reverse Futility Pruning — only at non-PV nodes
+  if (depth <= 6 && !isPVNode) {
+    int rfpMargin = 100 * depth;
+    if (eval - rfpMargin >= beta) {
+      result.cutoff = true;
+      result.score = eval;
+      return result;
+    }
+  }
+
+  // Razoring — only at non-PV nodes
+  if (depth <= 3 && !isPVNode) {
+    int razoringMargin = 300 + 150 * depth;
+    if (eval + razoringMargin < alpha) {
+      int qscore = quiescence(pos, alpha, beta, 0);
+      if (qscore < alpha) {
+        result.cutoff = true;
+        result.score = qscore;
+        return result;
+      }
+    }
+  }
+
+  // Futility flag — applies at PV nodes too!
+  if (depth <= 3) {
+    int futilityMargin = 100 + 200 * depth;
+    int futilityValue = eval + futilityMargin;
+    if (futilityValue <= alpha) {
+      result.futilityPrune = true;
+    }
+  }
+
+  return result;
 }
 
 std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove) {
