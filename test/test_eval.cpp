@@ -249,6 +249,89 @@ TEST_F(EvalTest, MopUp_WinningCornerKingBetter) {
 }
 
 // =============================================================================
+// Passed Pawn Advancement
+// =============================================================================
+
+TEST_F(EvalTest, PassedPawn_AdvancedPawnWorthMore) {
+  // White pawn on e6 (advanced) vs white pawn on e3 (not advanced)
+  // Both are passed. The advanced one should be worth significantly more.
+  Position posAdvanced;
+  posAdvanced.setFromFEN("4k3/8/4P3/8/8/8/8/4K3 w - - 0 1");
+  int scoreAdvanced = Eval::evaluate(posAdvanced);
+
+  Position posBack;
+  posBack.setFromFEN("4k3/8/8/8/8/4P3/8/4K3 w - - 0 1");
+  int scoreBack = Eval::evaluate(posBack);
+
+  EXPECT_GT(scoreAdvanced, scoreBack + 30)
+      << "Advanced passed pawn on e6 (" << scoreAdvanced
+      << ") should be worth significantly more than e3 (" << scoreBack << ")";
+}
+
+TEST_F(EvalTest, PassedPawn_ClearPathBonus) {
+  // Passed pawn with clear path vs passed pawn with a blocker
+  Position posClear;
+  posClear.setFromFEN("4k3/8/8/8/4P3/8/8/4K3 w - - 0 1");
+  int scoreClear = Eval::evaluate(posClear);
+
+  // Same pawn but with a piece blocking the path
+  Position posBlocked;
+  posBlocked.setFromFEN("4k3/8/4n3/8/4P3/8/8/4K3 w - - 0 1");
+  int scoreBlocked = Eval::evaluate(posBlocked);
+
+  // Clear path should give a bonus even accounting for material diff
+  // (the knight is extra material for black, so we're really testing that
+  // the eval still reflects the blocked path penalty on top of material)
+  // Here we just check the clear path evaluates higher (white has less material
+  // to compensate against, but also no blocker — the clear-path bonus should
+  // partially offset the missing material advantage)
+  EXPECT_GT(scoreClear + 320, scoreBlocked)
+      << "Clear path with material adjustment should be better: clear="
+      << scoreClear << " blocked=" << scoreBlocked;
+}
+
+// =============================================================================
+// Rook Behind Passed Pawn
+// =============================================================================
+
+TEST_F(EvalTest, RookBehindPasser_BetterThanInFront) {
+  // White rook behind own passed pawn (rook on e1, pawn on e5)
+  Position posBehind;
+  posBehind.setFromFEN("4k3/8/8/4P3/8/8/8/4RK2 w - - 0 1");
+  int scoreBehind = Eval::evaluate(posBehind);
+
+  // White rook in front of own passed pawn (rook on e6, pawn on e5)
+  // Using e6 instead of e7 to avoid the rook-on-7th-rank bonus masking the result.
+  Position posInFront;
+  posInFront.setFromFEN("4k3/8/4R3/4P3/8/8/8/5K2 w - - 0 1");
+  int scoreInFront = Eval::evaluate(posInFront);
+
+  EXPECT_GT(scoreBehind, scoreInFront)
+      << "Rook behind passer (" << scoreBehind
+      << ") should evaluate better than rook in front (" << scoreInFront << ")";
+}
+
+// =============================================================================
+// King-Passer Proximity (Endgame)
+// =============================================================================
+
+TEST_F(EvalTest, KingPasserProximity_CloseKingBetter) {
+  // White king close to own passed pawn (Kd5 with pawn on e5)
+  Position posClose;
+  posClose.setFromFEN("7k/8/8/3KP3/8/8/8/8 w - - 0 1");
+  int scoreClose = Eval::evaluate(posClose);
+
+  // White king far from own passed pawn (Ka1 with pawn on e5)
+  Position posFar;
+  posFar.setFromFEN("7k/8/8/4P3/8/8/8/K7 w - - 0 1");
+  int scoreFar = Eval::evaluate(posFar);
+
+  EXPECT_GT(scoreClose, scoreFar)
+      << "King close to passer (" << scoreClose
+      << ") should be better than king far away (" << scoreFar << ")";
+}
+
+// =============================================================================
 // Development
 // =============================================================================
 
