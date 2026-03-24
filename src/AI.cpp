@@ -365,8 +365,12 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
       return *score;
     }
   } else {
-    // During singular search, only get TT move, no cutoffs
-    probeTT(hash, 0, alpha, beta, ply, ttInfo);
+    // During singular search, only get TT move, no cutoffs.
+    // Use local copies of alpha/beta so the TT probe doesn't
+    // corrupt the outer search window.
+    int tmpAlpha = std::numeric_limits<int>::min() + 1;
+    int tmpBeta = std::numeric_limits<int>::max() - 1;
+    probeTT(hash, 0, tmpAlpha, tmpBeta, ply, ttInfo);
   }
 
   Move ttMove = ttInfo.ttMove;
@@ -650,6 +654,14 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     }
 
     pos.makeMove(sm.move);
+
+    // Lazy legality: skip illegal pseudo-legal captures (e.g., pinned pieces)
+    Color qUs = ~pos.sideToMove();
+    if (pos.isAttacked(BB::lsb(pos.pieces(qUs, KING)), pos.sideToMove())) {
+      pos.unmakeMove();
+      continue;
+    }
+
     int score = -quiescence(pos, -beta, -alpha, qsDepth + 1);
     pos.unmakeMove();
 
@@ -913,10 +925,13 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove,
   uint32_t key32 = static_cast<uint32_t>(hash >> 32);
   TTBucket& bucket = transpositionTable[bucketIdx];
 
-  // Mate score adjustment: convert from ply-relative to position-relative
+  // Mate score adjustment: convert from ply-relative to position-relative.
+  // A winning mate score (e.g., MATE_SCORE - ply) must be stored as the
+  // absolute distance, so subtract ply to get closer to MATE_SCORE.
+  // A losing mate score (e.g., -MATE_SCORE + ply) must add ply (more negative).
   int adjScore = score;
-  if (adjScore > MATE_BOUND) adjScore += ply;
-  else if (adjScore < -MATE_BOUND) adjScore -= ply;
+  if (adjScore > MATE_BOUND) adjScore -= ply;
+  else if (adjScore < -MATE_BOUND) adjScore += ply;
 
   // Determine flag
   TTFlag flag;
