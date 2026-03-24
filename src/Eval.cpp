@@ -120,8 +120,27 @@ static int evaluatePawnStructure(const Position& pos, Color c) {
     }
 
     if (!(enemyPawns & passedMask)) {
-      // Passed pawn bonus increases with advancement
-      int bonus = c == WHITE ? (rank - 1) * 10 : (6 - rank) * 10;
+      // Passed pawn bonus with exponential advancement scaling
+      // Ranks 2-7 for white (1-6 for black): the closer to promotion, the
+      // more dangerous. A pawn on rank 7 is worth far more than rank 4.
+      int advancement = c == WHITE ? rank - 1 : 6 - rank;  // 0-5 scale
+      // Exponential curve: [0]=10, [1]=15, [2]=25, [3]=40, [4]=70, [5]=120
+      static constexpr int advancementBonus[6] = {10, 15, 25, 40, 70, 120};
+      int bonus = advancementBonus[advancement];
+
+      // Extra bonus if the path ahead is clear (no blockers on the file)
+      Bitboard pathAhead = 0ULL;
+      if (c == WHITE) {
+        for (int r = rank + 1; r < 8; ++r)
+          pathAhead |= BB::squareBB(r * 8 + file);
+      } else {
+        for (int r = rank - 1; r >= 0; --r)
+          pathAhead |= BB::squareBB(r * 8 + file);
+      }
+      if (!(pos.occupied() & pathAhead)) {
+        bonus += 15;  // Clear path — pawn can advance freely
+      }
+
       score += 20 + bonus;
     } else {
       // Check for backward pawns (not passed and cannot be defended by pawns)
@@ -376,6 +395,50 @@ static int evaluateRooks(const Position& pos, Color c) {
     if ((c == WHITE && rank == RANK_7) || (c == BLACK && rank == RANK_2)) {
       score += 20;
     }
+
+    // Rook behind passed pawn (Tarrasch principle)
+    // Check both our passed pawns and enemy passed pawns on the same file
+    Bitboard allPawnsOnFile = (ourPawns | enemyPawns) & fileMask;
+    Bitboard pawnIter = allPawnsOnFile;
+    while (pawnIter) {
+      Square pawnSq = BB::popLsb(pawnIter);
+      int pawnRank = rankOf(pawnSq);
+      Color pawnColor = (ourPawns & BB::squareBB(pawnSq)) ? c : ~c;
+
+      // Is this pawn a passed pawn?
+      Bitboard pMask = 0ULL;
+      Bitboard pEnemy = pos.pieces(~pawnColor, PAWN);
+      int pFile = fileOf(pawnSq);
+      if (pawnColor == WHITE) {
+        for (int r = pawnRank + 1; r < 8; ++r) {
+          pMask |= BB::squareBB(r * 8 + pFile);
+          if (pFile > 0) pMask |= BB::squareBB(r * 8 + pFile - 1);
+          if (pFile < 7) pMask |= BB::squareBB(r * 8 + pFile + 1);
+        }
+      } else {
+        for (int r = pawnRank - 1; r >= 0; --r) {
+          pMask |= BB::squareBB(r * 8 + pFile);
+          if (pFile > 0) pMask |= BB::squareBB(r * 8 + pFile - 1);
+          if (pFile < 7) pMask |= BB::squareBB(r * 8 + pFile + 1);
+        }
+      }
+
+      if (!(pEnemy & pMask)) {
+        // It's a passed pawn. Is our rook behind it?
+        bool rookBehind = false;
+        if (pawnColor == WHITE)
+          rookBehind = rank < pawnRank;  // Rook on lower rank = behind
+        else
+          rookBehind = rank > pawnRank;  // Rook on higher rank = behind
+
+        if (rookBehind) {
+          if (pawnColor == c)
+            score += 20;  // Rook behind our own passer
+          else
+            score += 15;  // Rook behind enemy passer (restrains it)
+        }
+      }
+    }
   }
 
   return score;
@@ -498,6 +561,53 @@ static int evaluateMopUp(const Position& pos, int materialBalance, int phase) {
   return winner == WHITE ? bonus : -bonus;
 }
 
+// King-passer proximity: in endgames, reward our king being close to our
+// passed pawns and penalize when the enemy king is close to our passers.
+static int evaluateKingPawnProximity(const Position& pos, Color c) {
+  int score = 0;
+  Bitboard pawns = pos.pieces(c, PAWN);
+  Bitboard enemyPawns = pos.pieces(~c, PAWN);
+  Square ourKing = BB::lsb(pos.pieces(c, KING));
+  Square theirKing = BB::lsb(pos.pieces(~c, KING));
+
+  Bitboard pawnIter = pawns;
+  while (pawnIter) {
+    Square sq = BB::popLsb(pawnIter);
+    int file = fileOf(sq);
+    int rank = rankOf(sq);
+
+    // Build passed pawn mask
+    Bitboard passedMask = 0ULL;
+    if (c == WHITE) {
+      for (int r = rank + 1; r < 8; ++r) {
+        passedMask |= BB::squareBB(r * 8 + file);
+        if (file > 0) passedMask |= BB::squareBB(r * 8 + file - 1);
+        if (file < 7) passedMask |= BB::squareBB(r * 8 + file + 1);
+      }
+    } else {
+      for (int r = rank - 1; r >= 0; --r) {
+        passedMask |= BB::squareBB(r * 8 + file);
+        if (file > 0) passedMask |= BB::squareBB(r * 8 + file - 1);
+        if (file < 7) passedMask |= BB::squareBB(r * 8 + file + 1);
+      }
+    }
+
+    if (!(enemyPawns & passedMask)) {
+      // This is a passed pawn — evaluate king distances
+      int ourDist = kingDistance(ourKing, sq);
+      int theirDist = kingDistance(theirKing, sq);
+
+      // Bonus for our king being close (escorting the passer)
+      score += (7 - ourDist) * 3;
+
+      // Bonus when their king is far (can't stop the passer)
+      score += theirDist * 3;
+    }
+  }
+
+  return score;
+}
+
 }  // anonymous namespace
 
 namespace Eval {
@@ -585,6 +695,8 @@ int evaluate(const Position& pos) {
   int rookScore = evaluateRooks(pos, WHITE) - evaluateRooks(pos, BLACK);
   int bishopScore = evaluateBishops(pos, WHITE) - evaluateBishops(pos, BLACK);
   int knightScore = evaluateKnights(pos, WHITE) - evaluateKnights(pos, BLACK);
+  int kingPawnProx =
+      evaluateKingPawnProximity(pos, WHITE) - evaluateKingPawnProximity(pos, BLACK);
 
   // Tapered evaluation - blend opening/endgame scores based on game phase
   int phase = getGamePhase(pos);  // 0 (endgame) to 256 (opening)
@@ -596,11 +708,12 @@ int evaluate(const Position& pos) {
 
   // Endgame scores - adjust weights
   // In endgame: use endgame king PST, reduce positional/mobility, reduce king
-  // safety, increase pawn structure, ignore development, increase rook value
+  // safety, increase pawn structure, ignore development, increase rook value,
+  // add king-pawn proximity (king escorts passers)
   int endgameScore = material + (positional / 2) + kingPositionalEG +
                      (mobility / 2) + (kingSafety / 4) +
                      (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
-                     bishopScore + knightScore;
+                     bishopScore + knightScore + kingPawnProx;
 
   // Interpolate between opening and endgame
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
