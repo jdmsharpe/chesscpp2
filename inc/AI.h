@@ -146,6 +146,11 @@ class AI {
   };
   PruningResult canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode);
 
+  // Search helper: search a single move with PVS + LMR
+  // Handles makeMove/unmakeMove internally.
+  int searchMove(Position& pos, Move move, int depth, int alpha, int beta,
+                 int ply, size_t moveNum, bool isCapture, bool isPromotion);
+
   // Search helper: probe transposition table
   // Returns score if TT produces a cutoff, nullopt otherwise.
   // Sets ttMove if the position is found.

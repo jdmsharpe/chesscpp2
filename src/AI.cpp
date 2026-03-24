@@ -397,61 +397,8 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
       continue;  // Prune this move entirely
     }
 
-    pos.makeMove(move);
-
-    // Check Extension - extend search when giving check
-    bool givesCheck = pos.inCheck();
-    int extension = 0;
-    if (givesCheck) {
-      extension = 1;  // Search one ply deeper when checking
-    }
-
-    int score;
-    int newDepth = depth - 1 + extension;
-
-    // Principal Variation Search (PVS)
-    if (moveNum == 0) {
-      // First move - search with full window
-      score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
-    } else {
-      // Late Move Reductions (LMR)
-      int reduction = 0;
-
-      // Don't reduce checking moves, captures, or promotions
-      if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck &&
-          !isPromotion && !isKiller(move, ply)) {
-        // More aggressive reduction formula: log(depth) * log(moveNum)
-        reduction = 1;
-        if (depth >= 3 && moveNum >= 3) {
-          // Approximate log reduction: reduction increases with depth and move
-          // number
-          reduction = 1 + (depth >= 6 ? 1 : 0) + (moveNum >= 6 ? 1 : 0);
-          if (depth >= 8 && moveNum >= 10) {
-            reduction++;  // Extra reduction for very deep/late moves
-          }
-        }
-        // Clamp reduction to prevent over-reduction
-        reduction = std::min(reduction, newDepth);
-      }
-
-      // PVS: Try null window search first
-      score = -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
-
-      // If null window search fails high, do full re-search
-      if (score > alpha && score < beta) {
-        // Re-search at full depth if we reduced
-        if (reduction > 0) {
-          score = -negamax(pos, newDepth, -alpha - 1, -alpha, ply + 1);
-        }
-
-        // Full window re-search if still beats alpha
-        if (score > alpha && score < beta) {
-          score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
-        }
-      }
-    }
-
-    pos.unmakeMove();
+    int score = searchMove(pos, move, depth, alpha, beta, ply, moveNum,
+                           isCapture, isPromotion);
 
     if (score > maxScore) {
       maxScore = score;
@@ -469,8 +416,6 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
 
     if (alpha >= beta) {
       // Beta cutoff - store killer move and countermove if not a capture
-      bool isCapture = pos.pieceAt(toSquare(move)) != NO_PIECE ||
-                       moveType(move) == EN_PASSANT;
       if (!isCapture) {
         storeKiller(move, ply);
         updateHistory(move, depth);
@@ -761,6 +706,48 @@ AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bo
   }
 
   return result;
+}
+
+int AI::searchMove(Position& pos, Move move, int depth, int alpha, int beta,
+                   int ply, size_t moveNum, bool isCapture, bool isPromotion) {
+  pos.makeMove(move);
+
+  bool givesCheck = pos.inCheck();
+  int extension = givesCheck ? 1 : 0;
+  int newDepth = depth - 1 + extension;
+
+  int score;
+
+  if (moveNum == 0) {
+    score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
+  } else {
+    int reduction = 0;
+    if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck &&
+        !isPromotion && !isKiller(move, ply)) {
+      reduction = 1;
+      if (depth >= 3 && moveNum >= 3) {
+        reduction = 1 + (depth >= 6 ? 1 : 0) + (moveNum >= 6 ? 1 : 0);
+        if (depth >= 8 && moveNum >= 10) {
+          reduction++;
+        }
+      }
+      reduction = std::min(reduction, newDepth);
+    }
+
+    score = -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
+
+    if (score > alpha && score < beta) {
+      if (reduction > 0) {
+        score = -negamax(pos, newDepth, -alpha - 1, -alpha, ply + 1);
+      }
+      if (score > alpha && score < beta) {
+        score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
+      }
+    }
+  }
+
+  pos.unmakeMove();
+  return score;
 }
 
 std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove) {
