@@ -260,3 +260,18 @@ TEST_F(AITest, DeeperSearchExaminesMoreNodes) {
       << "Depth 4 searched " << nodes4 << " nodes, depth 1 searched " << nodes1
       << " nodes -- deeper search should examine more nodes";
 }
+
+TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
+  // Even without tablebases loaded, the engine should handle simple endgame
+  // positions correctly (K+Q vs K should find checkmate at sufficient depth).
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
+
+  AI ai(6);
+  ai.clearTT();
+  Move best = ai.findBestMove(pos);
+
+  // Must return a legal move
+  EXPECT_TRUE(isLegalMove(pos, best))
+      << "Engine must return a legal move in K+Q vs K endgame";
+}
