@@ -5,6 +5,11 @@ Diagnostic tool to see what Chess++ is thinking
 
 import subprocess
 import time
+import os
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+ENGINE_PATH = os.path.join(PROJECT_ROOT, "build", "chesscpp2") + " --uci"
 
 def send_uci_command(proc, command):
     """Send command and return response lines"""
@@ -31,7 +36,7 @@ def test_position(fen, moves_str="", depth=5):
 
     # Start engine
     proc = subprocess.Popen(
-        "../build/chesscpp2 --uci",
+        ENGINE_PATH,
         shell=True,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,

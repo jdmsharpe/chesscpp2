@@ -319,6 +319,13 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     return 0;  // Return immediately if time is up
   }
 
+  // Draw detection: repetition and 50-move rule (skip root)
+  if (ply > 0) {
+    if (pos.repetitionCount() >= 2 || pos.halfmoveClock() >= 100) {
+      return 0;
+    }
+  }
+
   int alphaOrig = alpha;
   HashKey hash = pos.hash();
   Move ttMove = 0;
@@ -442,6 +449,11 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
 
 int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
   nodesSearched++;
+
+  // Repetition detection — catches perpetual checks
+  if (pos.repetitionCount() >= 2) {
+    return 0;
+  }
 
   // Check extension: if in check, search deeper
   bool inCheck = pos.inCheck();

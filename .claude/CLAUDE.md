@@ -19,7 +19,7 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ```bash
 # From build/ directory
-ctest                          # Run all tests (146 tests)
+ctest                          # Run all tests (150 tests)
 ./test/test_bitboard           # Bitboard operations
 ./test/test_movegen            # Move generation + generateCheckingMoves
 ./test/test_position           # Position/make-unmake/SEE/draw detection
@@ -55,8 +55,8 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Move generation | `MoveGen.h/cpp` | Pseudo-legal → legality filter |
 | Magic bitboards | `Magic.h/cpp` | Pre-computed sliding attack tables |
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
-| Search | `AI.h/cpp` | Alpha-beta with helpers: probeTT, storeTT, tryNullMovePruning, canPrune, searchMove |
-| Evaluation | `Eval.h/cpp` | PST, tapered eval, pawn structure, king safety, mobility, development |
+| Search | `AI.h/cpp` | Alpha-beta with helpers: probeTT, storeTT, tryNullMovePruning, canPrune, searchMove; repetition detection in search + qsearch |
+| Evaluation | `Eval.h/cpp` | PST (incl. endgame king PST), tapered eval, pawn structure, king safety, mobility, development, mop-up |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
 | Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`) |

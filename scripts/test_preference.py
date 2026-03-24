@@ -4,11 +4,16 @@ Test if the engine prefers obviously good moves
 """
 
 import subprocess
+import os
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+ENGINE_PATH = os.path.join(PROJECT_ROOT, "build", "chesscpp2") + " --uci"
 
 def test_move(fen, depth, description):
     """Test what move the engine chooses"""
     proc = subprocess.Popen(
-        "../build/chesscpp2 --uci",
+        ENGINE_PATH,
         shell=True,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,

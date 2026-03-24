@@ -41,3 +41,6 @@ syzygy/
 
 # Polyglot opening books
 books/
+
+# Saved game PGNs
+games/

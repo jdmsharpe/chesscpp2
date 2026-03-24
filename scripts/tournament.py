@@ -7,7 +7,8 @@ import subprocess
 import time
 import sys
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import List, Dict, Optional
 
 try:
@@ -30,6 +31,58 @@ class GameResult:
     result: str  # "1-0", "0-1", "1/2-1/2"
     moves: int
     reason: str
+    move_list: List[str] = field(default_factory=list)
+
+    def to_pgn(self, round_num: int = 1) -> str:
+        """Export game as PGN string"""
+        lines = []
+        date = datetime.now().strftime("%Y.%m.%d")
+        lines.append(f'[Event "Engine Tournament"]')
+        lines.append(f'[Site "Local"]')
+        lines.append(f'[Date "{date}"]')
+        lines.append(f'[Round "{round_num}"]')
+        lines.append(f'[White "{self.white}"]')
+        lines.append(f'[Black "{self.black}"]')
+        lines.append(f'[Result "{self.result}"]')
+        lines.append(f'[Termination "{self.reason}"]')
+        lines.append("")
+
+        # Convert UCI moves to SAN if python-chess available
+        if HAS_PYTHON_CHESS:
+            board = chess.Board()
+            san_parts = []
+            for i, uci_move in enumerate(self.move_list):
+                try:
+                    move = chess.Move.from_uci(uci_move)
+                    san = board.san(move)
+                    board.push(move)
+                    if i % 2 == 0:
+                        san_parts.append(f"{i // 2 + 1}. {san}")
+                    else:
+                        san_parts.append(san)
+                except ValueError:
+                    san_parts.append(uci_move)
+        else:
+            san_parts = []
+            for i, uci_move in enumerate(self.move_list):
+                if i % 2 == 0:
+                    san_parts.append(f"{i // 2 + 1}. {uci_move}")
+                else:
+                    san_parts.append(uci_move)
+
+        # Wrap at ~80 chars
+        movetext = ""
+        line = ""
+        for part in san_parts:
+            if len(line) + len(part) + 1 > 80:
+                movetext += line + "\n"
+                line = part
+            else:
+                line = f"{line} {part}".strip()
+        movetext += f"{line} {self.result}"
+        lines.append(movetext.strip())
+        lines.append("")
+        return "\n".join(lines)
 
 
 class Engine:
@@ -144,8 +197,8 @@ class Tournament:
         self.results: List[GameResult] = []
         self.scores: Dict[str, float] = {e.name: 0.0 for e in engines}
 
-    def run_round_robin(self, games_per_pairing: int = 1, depth: int = 6, movetime: Optional[int] = None):
-        """Run round-robin tournament"""
+    def run_round_robin(self, games_per_pairing: int = 1, depth: int = 6, movetime: Optional[int] = None, pgn_file: Optional[str] = None):
+        """Run round-robin tournament. If pgn_file is set, saves all games to that file."""
         if not HAS_PYTHON_CHESS:
             print("WARNING: python-chess not installed — draw adjudication disabled (pip install python-chess)")
 
@@ -170,6 +223,10 @@ class Tournament:
                     self.results.append(result)
                     self._update_scores(result)
                     self._print_standings()
+
+        # Save PGN
+        pgn_path = pgn_file or self._default_pgn_path()
+        self.save_pgn(pgn_path)
 
     def _play_game(self, white: Engine, black: Engine, depth: int, movetime: Optional[int]) -> GameResult:
         """Play a single game between two engines"""
@@ -197,18 +254,18 @@ class Tournament:
                             winner = black.name if move_num % 2 == 0 else white.name
                             result_str = "0-1" if move_num % 2 == 0 else "1-0"
                             print(f"  Result: {winner} wins by checkmate")
-                            return GameResult(white.name, black.name, result_str, len(moves), "checkmate")
+                            return GameResult(white.name, black.name, result_str, len(moves), "checkmate", list(moves))
                         elif board.is_stalemate():
                             print(f"  Result: Draw (stalemate)")
-                            return GameResult(white.name, black.name, "1/2-1/2", len(moves), "stalemate")
+                            return GameResult(white.name, black.name, "1/2-1/2", len(moves), "stalemate", list(moves))
 
                     # Fallback without python-chess: assume checkmate
                     if move_num % 2 == 0:
                         print(f"  Result: {black.name} wins by checkmate")
-                        return GameResult(white.name, black.name, "0-1", len(moves), "checkmate")
+                        return GameResult(white.name, black.name, "0-1", len(moves), "checkmate", list(moves))
                     else:
                         print(f"  Result: {white.name} wins by checkmate")
-                        return GameResult(white.name, black.name, "1-0", len(moves), "checkmate")
+                        return GameResult(white.name, black.name, "1-0", len(moves), "checkmate", list(moves))
 
                 moves.append(move)
 
@@ -222,31 +279,31 @@ class Tournament:
                         winner = black.name if move_num % 2 == 0 else white.name
                         result_str = "0-1" if move_num % 2 == 0 else "1-0"
                         print(f"  Result: {winner} wins by forfeit (illegal move)")
-                        return GameResult(white.name, black.name, result_str, len(moves), f"illegal move: {move}")
+                        return GameResult(white.name, black.name, result_str, len(moves), f"illegal move: {move}", list(moves))
 
                     # --- Draw adjudication ---
                     if board.is_fivefold_repetition():
                         print(f"  Result: Draw (fivefold repetition) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "fivefold repetition")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "fivefold repetition", list(moves))
 
                     if board.is_repetition(3):
                         print(f"  Result: Draw (threefold repetition) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "threefold repetition")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "threefold repetition", list(moves))
 
                     if board.is_fifty_moves():
                         print(f"  Result: Draw (50-move rule) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "50-move rule")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "50-move rule", list(moves))
 
                     if board.is_insufficient_material():
                         print(f"  Result: Draw (insufficient material) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "insufficient material")
+                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "insufficient material", list(moves))
 
                 # Print progress every 10 moves
                 if len(moves) % 10 == 0:
                     print(f"  Move {len(moves)}: {move}")
 
             # Safety net — should rarely reach here with draw adjudication active
-            result = GameResult(white.name, black.name, "1/2-1/2", len(moves), "max moves")
+            result = GameResult(white.name, black.name, "1/2-1/2", len(moves), "max moves", list(moves))
             print(f"  Result: Draw (max moves)")
             return result
 
@@ -288,6 +345,24 @@ class Tournament:
             reason_parts = [f"{reason}: {count}" for reason, count in sorted(reasons.items())]
             print(f"  Draws: {', '.join(reason_parts)}")
         print("=" * 60)
+
+
+    def _default_pgn_path(self) -> str:
+        """Generate a default PGN filename based on engine names and timestamp"""
+        names = "_vs_".join(e.name.replace(" ", "-") for e in self.engines[:2])
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return os.path.join(PROJECT_ROOT, "games", f"{names}_{ts}.pgn")
+
+    def save_pgn(self, path: str):
+        """Save all games to a PGN file"""
+        if not self.results:
+            return
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            for i, result in enumerate(self.results, 1):
+                f.write(result.to_pgn(round_num=i))
+                f.write("\n")
+        print(f"\nPGN saved to {path}")
 
 
 if __name__ == "__main__":

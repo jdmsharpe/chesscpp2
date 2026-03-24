@@ -109,8 +109,8 @@ def play_game():
     chesscpp_options = {"Depth": "8"}
     if os.path.isfile(DEFAULT_BOOK_PATH):
         chesscpp_options["BookPath"] = DEFAULT_BOOK_PATH
-    chesscpp = create_engine("./build/chesscpp2 --uci", chesscpp_options)
-    stockfish = create_engine("./stockfish/stockfish-ubuntu-x86-64-avx2", {"Skill Level": "1"})
+    chesscpp = create_engine(f"{PROJECT_ROOT}/build/chesscpp2 --uci", chesscpp_options)
+    stockfish = create_engine(f"{PROJECT_ROOT}/stockfish/stockfish-ubuntu-x86-64-avx2", {"Skill Level": "1"})
     assert chesscpp.stdin is not None and stockfish.stdin is not None
 
     # Start game
