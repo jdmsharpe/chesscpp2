@@ -21,7 +21,8 @@ AI::AI(int depth)
       searchStartTime(0),
       stopSearch(false),
       moveCallback(nullptr),
-      transpositionTable(TT_SIZE),
+      ttSize((DEFAULT_TT_SIZE_MB * 1024 * 1024) / sizeof(TTEntry)),
+      transpositionTable(ttSize),
       ttAge(0),
       killerMoves{},
       historyTable{},
@@ -778,7 +779,7 @@ int AI::searchMove(Position& pos, Move move, int depth, int alpha, int beta,
 }
 
 std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove) {
-  size_t ttIndex = hash % TT_SIZE;
+  size_t ttIndex = hash % ttSize;
   TTEntry& ttEntry = transpositionTable[ttIndex];
 
   if (ttEntry.key == hash) {
@@ -804,7 +805,7 @@ std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, M
 }
 
 void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta) {
-  size_t ttIndex = hash % TT_SIZE;
+  size_t ttIndex = hash % ttSize;
   TTEntry& entry = transpositionTable[ttIndex];
 
   bool shouldReplace = (entry.key == 0) ||

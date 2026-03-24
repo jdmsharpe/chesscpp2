@@ -758,21 +758,19 @@ int evaluate(const Position& pos) {
   // 50-move rule scaling: as halfmove clock rises, scale the eval toward 0.
   // This creates urgency to make irreversible progress (pawn pushes, captures)
   // rather than shuffling pieces until a draw is forced.
+  // Threshold at 70 — normal maneuvering often reaches 40-60 without any
+  // real 50-move danger; only start scaling when it's a genuine concern.
   int hmc = pos.halfmoveClock();
-  if (hmc > 40 && score != 0) {
-    // Graduated scaling: gentle at first, aggressive near the limit.
-    // hmc 40→70: scale 100%→85%  (gentle pressure)
-    // hmc 70→90: scale 85%→40%   (strong pressure)
-    // hmc 90→99: scale 40%→5%    (critical urgency)
+  if (hmc > 70 && score != 0) {
+    // hmc 70→90: scale 100%→50%  (increasing pressure)
+    // hmc 90→99: scale 50%→5%    (critical urgency)
     int scaleFactor;
-    if (hmc < 70) {
-      scaleFactor = 256 - (hmc - 40) * 256 * 15 / (30 * 100); // 256→217
-    } else if (hmc < 90) {
-      scaleFactor = 217 - (hmc - 70) * (217 - 102) / 20;      // 217→102
+    if (hmc < 90) {
+      scaleFactor = 256 - (hmc - 70) * (256 - 128) / 20;      // 256→128
     } else {
-      scaleFactor = 102 - (hmc - 90) * (102 - 13) / 10;       // 102→13
+      scaleFactor = 128 - (hmc - 90) * (128 - 13) / 10;       // 128→13
     }
-    scaleFactor = std::max(scaleFactor, 13); // Never fully zero (keep some preference)
+    scaleFactor = std::max(scaleFactor, 13);
     score = score * scaleFactor / 256;
   }
 

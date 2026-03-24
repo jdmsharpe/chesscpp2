@@ -98,6 +98,7 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 
 ## UCI Options
 
+- `setoption name Hash value 64` — Transposition table size in MB (default 128, range 1–4096)
 - `setoption name SyzygyPath value /path/to/syzygy` — Syzygy tablebase directory
 - `setoption name BookPath value /path/to/books/Titans.bin` — Polyglot opening book
 

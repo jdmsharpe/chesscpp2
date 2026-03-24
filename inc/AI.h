@@ -36,6 +36,13 @@ class AI {
   uint64_t getNodesSearched() const { return nodesSearched; }
   uint64_t getTTHits() const { return ttHits; }
 
+  // Resize transposition table (in MB)
+  void resizeTT(size_t mb) {
+    ttSize = (mb * 1024 * 1024) / sizeof(TTEntry);
+    transpositionTable.assign(ttSize, TTEntry{});
+    ttAge = 0;
+  }
+
   // Clear transposition table
   void clearTT() {
     std::fill(transpositionTable.begin(), transpositionTable.end(), TTEntry{});
@@ -86,10 +93,9 @@ class AI {
     uint8_t age;  // For aging entries
   };
 
-  // Fixed-size transposition table (128MB default)
-  static constexpr size_t TT_SIZE_MB = 128;
-  static constexpr size_t TT_SIZE =
-      (TT_SIZE_MB * 1024 * 1024) / sizeof(TTEntry);
+  // Transposition table (128MB default, resizable via UCI Hash option)
+  static constexpr size_t DEFAULT_TT_SIZE_MB = 128;
+  size_t ttSize;
   std::vector<TTEntry> transpositionTable;
   uint8_t ttAge;  // Current search age
 

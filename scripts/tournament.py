@@ -4,6 +4,7 @@ UCI Chess Tournament Framework
 """
 
 import subprocess
+import shlex
 import time
 import sys
 import os
@@ -107,11 +108,10 @@ class Engine:
     def start(self):
         """Start the engine process"""
         self.process = subprocess.Popen(
-            self.path,
-            shell=True,
+            shlex.split(self.path),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             text=True,
             bufsize=1
         )
@@ -143,16 +143,15 @@ class Engine:
 
     def get_move(self, position_fen: str, moves: List[str], depth: int = 6, movetime: Optional[int] = None) -> Optional[str]:
         """Get best move for current position"""
-        # Send position
-        if moves:
+        # Send position — prefer FEN to avoid replaying entire move history
+        if position_fen == "startpos" and not moves:
+            self._send("position startpos")
+        elif position_fen != "startpos":
+            self._send(f"position fen {position_fen}")
+        else:
+            # Fallback: startpos + moves (only used if no FEN available)
             moves_str = " moves " + " ".join(moves)
-        else:
-            moves_str = ""
-
-        if position_fen == "startpos":
             self._send(f"position startpos{moves_str}")
-        else:
-            self._send(f"position fen {position_fen}{moves_str}")
 
         # Request move
         if movetime:
@@ -173,8 +172,7 @@ class Engine:
         """Send command to engine"""
         assert self.process is not None and self.process.stdin is not None
         if self.process.poll() is not None:
-            stderr = self.process.stderr.read() if self.process.stderr else ""
-            raise RuntimeError(f"Engine '{self.name}' exited with code {self.process.returncode} before receiving '{command}'\n  stderr: {stderr}")
+            raise RuntimeError(f"Engine '{self.name}' exited with code {self.process.returncode} before receiving '{command}'")
         self.process.stdin.write(command + "\n")
         self.process.stdin.flush()
 
@@ -202,42 +200,46 @@ class Tournament:
         if not HAS_PYTHON_CHESS:
             print("WARNING: python-chess not installed — draw adjudication disabled (pip install python-chess)")
 
+        # Start all engines once for the entire tournament
+        for engine in self.engines:
+            engine.start()
+
         total_games = len(self.engines) * (len(self.engines) - 1) * games_per_pairing
         game_num = 0
 
-        for i, engine1 in enumerate(self.engines):
-            for j, engine2 in enumerate(self.engines):
-                if i == j:
-                    continue
+        try:
+            for i, engine1 in enumerate(self.engines):
+                for j, engine2 in enumerate(self.engines):
+                    if i == j:
+                        continue
 
-                for game in range(games_per_pairing):
-                    game_num += 1
-                    # Alternate colors
-                    if game % 2 == 0:
-                        white, black = engine1, engine2
-                    else:
-                        white, black = engine2, engine1
+                    for game in range(games_per_pairing):
+                        game_num += 1
+                        # Alternate colors
+                        if game % 2 == 0:
+                            white, black = engine1, engine2
+                        else:
+                            white, black = engine2, engine1
 
-                    print(f"\n[Game {game_num}/{total_games}] {white.name} (White) vs {black.name} (Black)")
-                    result = self._play_game(white, black, depth, movetime)
-                    self.results.append(result)
-                    self._update_scores(result)
-                    self._print_standings()
+                        print(f"\n[Game {game_num}/{total_games}] {white.name} (White) vs {black.name} (Black)")
+                        result = self._play_game(white, black, depth, movetime)
+                        self.results.append(result)
+                        self._update_scores(result)
+                        self._print_standings()
+        finally:
+            # Stop all engines when tournament is done
+            for engine in self.engines:
+                engine.stop()
 
         # Save PGN
         pgn_path = pgn_file or self._default_pgn_path()
         self.save_pgn(pgn_path)
 
     def _play_game(self, white: Engine, black: Engine, depth: int, movetime: Optional[int]) -> GameResult:
-        """Play a single game between two engines"""
-        # Start engines
-        white.start()
-        black.start()
-
+        """Play a single game between two engines (engines must already be started)"""
         white.new_game()
         black.new_game()
 
-        position = "startpos"
         moves = []
         board = chess.Board() if HAS_PYTHON_CHESS else None
         max_moves = 600  # Safety net only — draw rules should trigger first
@@ -245,7 +247,9 @@ class Tournament:
         try:
             for move_num in range(max_moves):
                 current_engine = white if move_num % 2 == 0 else black
-                move = current_engine.get_move(position, moves, depth, movetime)
+                # Send FEN when available (avoids replaying entire game each move)
+                current_fen = board.fen() if board is not None else "startpos"
+                move = current_engine.get_move(current_fen, moves, depth, movetime)
 
                 if not move or move == "0000" or move == "(none)":
                     # Engine returned no move — use board to distinguish checkmate vs stalemate
@@ -308,8 +312,7 @@ class Tournament:
             return result
 
         finally:
-            white.stop()
-            black.stop()
+            pass  # Engines are managed by the tournament, not per-game
 
     def _update_scores(self, result: GameResult):
         """Update tournament scores"""
