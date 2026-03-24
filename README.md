@@ -159,7 +159,8 @@ info string Polyglot book move: e2e4
 3. **Magic.h/cpp** - Magic bitboard implementation for sliding pieces
 4. **Position.h/cpp** - Board position with bitboard representation
 5. **MoveGen.h/cpp** - Fast legal move generation
-6. **AI.h/cpp** - Alpha-beta search with TT, killer/history, LMR, null move pruning, quiescence
+6. **AI.h/cpp** - Alpha-beta search with decomposed helpers (probeTT, storeTT, tryNullMovePruning, canPrune, searchMove)
+6b. **Eval.h/cpp** - Position evaluation: PST, tapered eval, pawn structure, king safety, mobility
 7. **Game.h/cpp** - Game controller and rules
 8. **Window.h/cpp** - SDL2 GUI implementation
 9. **UCI.h/cpp** - Universal Chess Interface protocol
@@ -213,20 +214,24 @@ From the starting position with **magic bitboards enabled**:
 
 ## Testing
 
-Run the test suite:
+Run the full test suite (146 tests):
 
 ```bash
 cd build
 ctest
 ```
 
-Or run individual tests:
+Or run individual test suites:
 
 ```bash
 ./test/test_bitboard      # Bitboard operations
-./test/test_movegen        # Move generation
-./test/test_position       # Position make/unmake
+./test/test_movegen        # Move generation + checking moves
+./test/test_position       # Position make/unmake, SEE, draw detection
 ./test/test_polyglot       # Polyglot book handling
+./test/test_eval           # Evaluation (material, PST, pawn structure, king safety)
+./test/test_ai             # Search (mate detection, TT, time management)
+./test/test_uci            # UCI protocol compliance
+./test/test_game           # Game logic (moves, draws, checkmate, special moves)
 ```
 
 Verify perft node counts against known values (also runs in CI):
@@ -263,6 +268,11 @@ Potential improvements:
 - [x] Threefold repetition detection (implemented)
 - [x] Insufficient material detection (implemented)
 - [x] Time controls (implemented - wtime/btime/winc/binc)
+- [x] Evaluation extracted to Eval.h/cpp with clean namespace interface
+- [x] Search decomposed into 5 named helpers (probeTT, storeTT, tryNullMovePruning, canPrune, searchMove)
+- [x] SEE caching via ScoredMove struct (eliminates redundant SEE in quiescence)
+- [x] Efficient checking move generation for quiescence search
+- [x] Comprehensive test suite (146 tests: eval, search, UCI, game logic, move generation)
 - [ ] Lazy SMP multithreading (designed, not yet implemented — see `docs/plans/`)
 
 ## License
