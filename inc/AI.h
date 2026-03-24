@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -132,5 +133,17 @@ class AI {
 
   // Check if move is killer
   bool isKiller(Move move, int ply) const;
+
+  // Search helper: probe transposition table
+  // Returns score if TT produces a cutoff, nullopt otherwise.
+  // Sets ttMove if the position is found.
+  // alpha/beta passed by reference — the original code modifies them
+  // for LOWERBOUND/UPPERBOUND entries and those tightened bounds must
+  // persist in the caller.
+  std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove);
+
+  // Search helper: store result in transposition table
+  // Takes both alphaOrig and beta — both needed to determine the TT flag.
+  void storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta);
 
 };
