@@ -205,6 +205,53 @@ TEST_F(EvalTest, Development_AfterMovesVsStarting) {
       << scoreDeveloped;
 }
 
+// =============================================================================
+// Endgame King Centralization
+// =============================================================================
+
+TEST_F(EvalTest, EndgameKing_CentralBetterThanCorner) {
+  // K+P endgame: white king on e4 (central) vs white king on a1 (corner)
+  // Both have same material — the central king should evaluate better.
+  Position posCentral;
+  posCentral.setFromFEN("4k3/8/8/8/4K3/8/4P3/8 w - - 0 1");
+  int scoreCentral = Eval::evaluate(posCentral);
+
+  Position posCorner;
+  posCorner.setFromFEN("4k3/8/8/8/8/8/4P3/K7 w - - 0 1");
+  int scoreCorner = Eval::evaluate(posCorner);
+
+  EXPECT_GT(scoreCentral, scoreCorner)
+      << "Central king (" << scoreCentral
+      << ") should evaluate better than corner king (" << scoreCorner
+      << ") in endgame";
+}
+
+// =============================================================================
+// Mop-Up Evaluation
+// =============================================================================
+
+TEST_F(EvalTest, MopUp_WinningCornerKingBetter) {
+  // White up a rook. Enemy king in corner should evaluate better for white
+  // than enemy king in center (mop-up wants to drive king to corner).
+  Position posCornerKing;
+  posCornerKing.setFromFEN("k7/8/8/8/8/8/8/4K2R w - - 0 1");
+  int scoreCorner = Eval::evaluate(posCornerKing);
+
+  Position posCenterKing;
+  posCenterKing.setFromFEN("8/8/8/3k4/8/8/8/4K2R w - - 0 1");
+  int scoreCenter = Eval::evaluate(posCenterKing);
+
+  // When winning, enemy king in corner should give a higher eval
+  EXPECT_GT(scoreCorner, scoreCenter)
+      << "Enemy king in corner (" << scoreCorner
+      << ") should be better than center (" << scoreCenter
+      << ") when winning with mop-up";
+}
+
+// =============================================================================
+// Development
+// =============================================================================
+
 TEST_F(EvalTest, Development_AfterE4BetterThanStart) {
   // After 1.e4 (black to move) - white has moved a center pawn
   Position posE4;

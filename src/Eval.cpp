@@ -63,6 +63,17 @@ constexpr int kingMiddle[64] = {
     -30, -40, -40, -50, -50, -40, -40, -30,  // Rank 7
     -30, -40, -40, -50, -50, -40, -40, -30}; // Rank 8
 
+// Kings - centralize in endgame (active king is critical)
+constexpr int kingEndgame[64] = {
+    -20, -10, -10, -10, -10, -10, -10, -20,  // Rank 1 (back rank bad)
+    -10,   0,   5,   5,   5,   5,   0, -10,  // Rank 2
+    -10,   5,  10,  15,  15,  10,   5, -10,  // Rank 3
+    -10,   5,  15,  20,  20,  15,   5, -10,  // Rank 4
+    -10,   5,  15,  20,  20,  15,   5, -10,  // Rank 5
+    -10,   5,  10,  15,  15,  10,   5, -10,  // Rank 6
+    -10,   0,   5,   5,   5,   5,   0, -10,  // Rank 7
+    -20, -10, -10, -10, -10, -10, -10, -20}; // Rank 8
+
 // All helper functions as static free functions
 
 static int evaluatePawnStructure(const Position& pos, Color c) {
@@ -456,6 +467,37 @@ static int evaluateKnights(const Position& pos, Color c) {
   return score;
 }
 
+// Manhattan distance from center (for mop-up eval)
+static int centerDistance(Square sq) {
+  int file = fileOf(sq);
+  int rank = rankOf(sq);
+  int fileDist = std::max(3 - file, file - 4);
+  int rankDist = std::max(3 - rank, rank - 4);
+  return fileDist + rankDist;
+}
+
+// Chebyshev distance between two squares
+static int kingDistance(Square a, Square b) {
+  return std::max(std::abs(fileOf(a) - fileOf(b)),
+                  std::abs(rankOf(a) - rankOf(b)));
+}
+
+// Mop-up bonus: when winning with big material advantage, drive enemy king
+// to corner and bring our king close. Only active in endgames.
+static int evaluateMopUp(const Position& pos, int materialBalance, int phase) {
+  // Only kick in when material advantage > ~400cp and it's an endgame
+  if (phase > 128 || std::abs(materialBalance) < 400) return 0;
+
+  Color winner = materialBalance > 0 ? WHITE : BLACK;
+  Square winnerKing = BB::lsb(pos.pieces(winner, KING));
+  Square loserKing = BB::lsb(pos.pieces(~winner, KING));
+
+  // Push losing king to corner + bring winning king close
+  int bonus = centerDistance(loserKing) * 10 + (7 - kingDistance(winnerKing, loserKing)) * 5;
+
+  return winner == WHITE ? bonus : -bonus;
+}
+
 }  // anonymous namespace
 
 namespace Eval {
@@ -490,10 +532,14 @@ int evaluate(const Position& pos) {
     positional += rook[sq];
   }
 
+  int kingPositionalMG = 0;  // Middlegame king PST
+  int kingPositionalEG = 0;  // Endgame king PST
+
   Bitboard kings = pos.pieces(WHITE, KING);
   while (kings) {
     Square sq = BB::popLsb(kings);
-    positional += kingMiddle[sq];
+    kingPositionalMG += kingMiddle[sq];
+    kingPositionalEG += kingEndgame[sq];
   }
 
   // Evaluate black pieces (flip board)
@@ -524,7 +570,8 @@ int evaluate(const Position& pos) {
   kings = pos.pieces(BLACK, KING);
   while (kings) {
     Square sq = BB::popLsb(kings);
-    positional -= kingMiddle[sq ^ 56];
+    kingPositionalMG -= kingMiddle[sq ^ 56];
+    kingPositionalEG -= kingEndgame[sq ^ 56];
   }
 
   // Add advanced evaluation features
@@ -543,19 +590,23 @@ int evaluate(const Position& pos) {
   int phase = getGamePhase(pos);  // 0 (endgame) to 256 (opening)
 
   // Opening scores - full weight (development matters most in opening!)
-  int openingScore = material + positional + mobility + kingSafety +
-                     pawnStructure + development + rookScore + bishopScore +
-                     knightScore;
+  int openingScore = material + positional + kingPositionalMG + mobility +
+                     kingSafety + pawnStructure + development + rookScore +
+                     bishopScore + knightScore;
 
   // Endgame scores - adjust weights
-  // In endgame: reduce positional/mobility, reduce king safety, increase pawn
-  // structure, ignore development, increase rook value (rooks dominate endgame)
-  int endgameScore = material + (positional / 2) + (mobility / 2) +
-                     (kingSafety / 4) + (pawnStructure * 3 / 2) +
-                     (rookScore * 3 / 2) + bishopScore + knightScore;
+  // In endgame: use endgame king PST, reduce positional/mobility, reduce king
+  // safety, increase pawn structure, ignore development, increase rook value
+  int endgameScore = material + (positional / 2) + kingPositionalEG +
+                     (mobility / 2) + (kingSafety / 4) +
+                     (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
+                     bishopScore + knightScore;
 
   // Interpolate between opening and endgame
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
+
+  // Mop-up: when winning big in endgame, drive enemy king to corner
+  score += evaluateMopUp(pos, material, phase);
 
   // Return from perspective of side to move
   return (pos.sideToMove() == WHITE) ? score : -score;
