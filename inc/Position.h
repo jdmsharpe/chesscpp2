@@ -42,6 +42,17 @@ class Position {
   int fullmoveNumber() const { return fullmoves; }
   HashKey hash() const { return positionHash; }
 
+  // Move history entry (public for search access)
+  struct StateInfo {
+    Move move;
+    Piece captured;
+    int castling;
+    Square epSquare;
+    int halfmoves;
+    HashKey hash;
+  };
+  const std::vector<StateInfo>& getHistory() const { return history; }
+
   // Check detection
   bool inCheck() const;
   bool isCheckmate();
@@ -91,15 +102,7 @@ class Position {
   int fullmoves;         // Fullmove number
   HashKey positionHash;  // Zobrist hash of position
 
-  // Move history for unmake
-  struct StateInfo {
-    Move move;
-    Piece captured;
-    int castling;
-    Square epSquare;
-    int halfmoves;
-    HashKey hash;
-  };
+  // Move history for unmake (StateInfo defined in public section)
   std::vector<StateInfo> history;
 
   // Helper methods

@@ -322,7 +322,14 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
   // Draw detection: repetition and 50-move rule (skip root)
   if (ply > 0) {
     if (pos.repetitionCount() >= 2 || pos.halfmoveClock() >= 100) {
-      return 0;
+      // Contempt: when winning, treat draws as slightly bad to avoid shuffling.
+      // When losing, draws are slightly good (prefer draw over loss).
+      int contempt = 0;
+      int material = pos.materialCount(pos.sideToMove()) -
+                     pos.materialCount(~pos.sideToMove());
+      if (material > 200) contempt = -15;       // We're winning, avoid draw
+      else if (material < -200) contempt = 15;   // We're losing, seek draw
+      return contempt;
     }
   }
 
@@ -452,6 +459,10 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
 
   // Repetition detection — catches perpetual checks
   if (pos.repetitionCount() >= 2) {
+    int material = pos.materialCount(pos.sideToMove()) -
+                   pos.materialCount(~pos.sideToMove());
+    if (material > 200) return -15;
+    if (material < -200) return 15;
     return 0;
   }
 
@@ -481,13 +492,22 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     }
   }
 
-  // Generate captures (and checks at qdepth 0)
-  std::vector<Move> captures = MoveGen::generateCaptures(pos);
+  // When in check, must generate ALL legal moves (not just captures) to
+  // detect checkmate and find non-capture evasions.
+  std::vector<Move> captures;
+  if (inCheck) {
+    captures = MoveGen::generateLegalMoves(pos);
+    if (captures.empty()) {
+      return -10000 + static_cast<int>(pos.getHistory().size());  // Checkmate
+    }
+  } else {
+    captures = MoveGen::generateCaptures(pos);
 
-  // At first qsearch ply, also try checking moves to avoid horizon effect
-  if (qsDepth == 0 && !inCheck) {
-    std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
-    captures.insert(captures.end(), checks.begin(), checks.end());
+    // At first qsearch ply, also try checking moves to avoid horizon effect
+    if (qsDepth == 0) {
+      std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+      captures.insert(captures.end(), checks.begin(), checks.end());
+    }
   }
 
   // Build ScoredMove list with cached SEE
@@ -553,7 +573,7 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move tt
       sm.score = 5000 + sm.seeValue;
     }
   } else {
-    // Quiet moves — same as before
+    // Quiet moves
     if (ply > 0 && pvLength[ply - 1] > 0) {
       Move prevMove = pvTable[ply - 1][0];
       Move countermove = countermoves[fromSquare(prevMove)][toSquare(prevMove)];
@@ -565,6 +585,17 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move tt
       sm.score += 9000;
     }
     sm.score += historyTable[from][to];
+
+    // Retreat penalty: discourage moving a piece back to where it just came from.
+    // If the last move in game history moved TO our FROM square, and we're moving
+    // back TO where that piece came FROM, it's likely a wasted tempo.
+    const auto& hist = pos.getHistory();
+    if (hist.size() >= 2) {
+      const auto& prevState = hist[hist.size() - 2];  // Our last move (2 plies ago)
+      if (from == toSquare(prevState.move) && to == fromSquare(prevState.move)) {
+        sm.score -= 3000;  // Penalize retreating the same piece
+      }
+    }
   }
 
   if (moveType(move) == PROMOTION) {
