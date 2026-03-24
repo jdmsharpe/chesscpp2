@@ -98,6 +98,41 @@ add_executable(test_ai
 target_include_directories(test_ai PRIVATE ../inc ../lib/Fathom/src)
 target_link_libraries(test_ai PRIVATE GTest::gtest_main fathom pthread)
 
+# UCI tests
+add_executable(test_uci
+    test_uci.cpp
+    ../src/UCI.cpp
+    ../src/Game.cpp
+    ../src/AI.cpp
+    ../src/Eval.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+    ../src/Polyglot.cpp
+    ../src/Tablebase.cpp
+)
+target_include_directories(test_uci PRIVATE ../inc ../lib/Fathom/src)
+target_link_libraries(test_uci PRIVATE GTest::gtest_main fathom pthread)
+
+# Game tests
+add_executable(test_game
+    test_game.cpp
+    ../src/Game.cpp
+    ../src/AI.cpp
+    ../src/Eval.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+    ../src/Polyglot.cpp
+    ../src/Tablebase.cpp
+)
+target_include_directories(test_game PRIVATE ../inc ../lib/Fathom/src)
+target_link_libraries(test_game PRIVATE GTest::gtest_main fathom pthread)
+
 # Discover tests
 include(GoogleTest)
 gtest_discover_tests(test_bitboard)
@@ -106,3 +141,5 @@ gtest_discover_tests(test_position)
 gtest_discover_tests(test_polyglot)
 gtest_discover_tests(test_eval)
 gtest_discover_tests(test_ai)
+gtest_discover_tests(test_uci)
+gtest_discover_tests(test_game)
