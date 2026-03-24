@@ -124,8 +124,9 @@ static int evaluatePawnStructure(const Position& pos, Color c) {
       // Ranks 2-7 for white (1-6 for black): the closer to promotion, the
       // more dangerous. A pawn on rank 7 is worth far more than rank 4.
       int advancement = c == WHITE ? rank - 1 : 6 - rank;  // 0-5 scale
-      // Exponential curve: [0]=10, [1]=15, [2]=25, [3]=40, [4]=70, [5]=120
-      static constexpr int advancementBonus[6] = {10, 15, 25, 40, 70, 120};
+      // Exponential curve: stronger bonuses for advanced passers
+      // A pawn on rank 7 is extremely dangerous and nearly promoting
+      static constexpr int advancementBonus[6] = {10, 20, 35, 60, 100, 180};
       int bonus = advancementBonus[advancement];
 
       // Extra bonus if the path ahead is clear (no blockers on the file)
@@ -138,7 +139,7 @@ static int evaluatePawnStructure(const Position& pos, Color c) {
           pathAhead |= BB::squareBB(r * 8 + file);
       }
       if (!(pos.occupied() & pathAhead)) {
-        bonus += 15;  // Clear path — pawn can advance freely
+        bonus += 25;  // Clear path — pawn can advance freely
       }
 
       score += 20 + bonus;
@@ -598,10 +599,44 @@ static int evaluateKingPawnProximity(const Position& pos, Color c) {
       int theirDist = kingDistance(theirKing, sq);
 
       // Bonus for our king being close (escorting the passer)
-      score += (7 - ourDist) * 3;
+      score += (7 - ourDist) * 5;
 
       // Bonus when their king is far (can't stop the passer)
-      score += theirDist * 3;
+      score += theirDist * 5;
+
+      // Rule of the square: if enemy king can't catch the pawn and
+      // there are no enemy pieces (except king+pawns) to intercept,
+      // this pawn is unstoppable — worth nearly a queen.
+      int promoRank = (c == WHITE) ? 7 : 0;
+      int distToPromo = std::abs(promoRank - rank);
+
+      // Enemy non-pawn, non-king pieces that could intercept
+      Bitboard enemyPieces = pos.pieces(~c, KNIGHT) | pos.pieces(~c, BISHOP) |
+                             pos.pieces(~c, ROOK) | pos.pieces(~c, QUEEN);
+
+      if (!enemyPieces && distToPromo > 0) {
+        // Pure king+pawn endgame — rule of the square applies.
+        // The "square" is: can the enemy king reach any square on
+        // the pawn's path to promotion before the pawn gets there?
+        // Simplified: enemy king distance to promotion square vs pawn distance,
+        // adjusted for whose move it is.
+        Square promoSq = Square(promoRank * 8 + file);
+        int kingDistToPromo = kingDistance(theirKing, promoSq);
+        // If it's the opponent's move, they get one free step
+        int pawnDist = distToPromo;
+        // Account for pawn on starting rank getting a double push
+        if ((c == WHITE && rank == RANK_2) || (c == BLACK && rank == RANK_7)) {
+          pawnDist--;
+        }
+
+        if (kingDistToPromo > pawnDist + 1) {
+          // King is outside the square — pawn is unstoppable!
+          score += 700;  // Nearly queen value
+        } else if (kingDistToPromo > pawnDist) {
+          // King is on the edge — unstoppable if it's our move
+          score += 350;
+        }
+      }
     }
   }
 
@@ -712,14 +747,35 @@ int evaluate(const Position& pos) {
   // add king-pawn proximity (king escorts passers)
   int endgameScore = material + (positional / 2) + kingPositionalEG +
                      (mobility / 2) + (kingSafety / 4) +
-                     (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
-                     bishopScore + knightScore + kingPawnProx;
+                     (pawnStructure * 2) + (rookScore * 3 / 2) +
+                     bishopScore + knightScore + (kingPawnProx * 2);
 
   // Interpolate between opening and endgame
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
 
   // Mop-up: when winning big in endgame, drive enemy king to corner
   score += evaluateMopUp(pos, material, phase);
+
+  // 50-move rule scaling: as halfmove clock rises, scale the eval toward 0.
+  // This creates urgency to make irreversible progress (pawn pushes, captures)
+  // rather than shuffling pieces until a draw is forced.
+  int hmc = pos.halfmoveClock();
+  if (hmc > 40 && score != 0) {
+    // Graduated scaling: gentle at first, aggressive near the limit.
+    // hmc 40→70: scale 100%→85%  (gentle pressure)
+    // hmc 70→90: scale 85%→40%   (strong pressure)
+    // hmc 90→99: scale 40%→5%    (critical urgency)
+    int scaleFactor;
+    if (hmc < 70) {
+      scaleFactor = 256 - (hmc - 40) * 256 * 15 / (30 * 100); // 256→217
+    } else if (hmc < 90) {
+      scaleFactor = 217 - (hmc - 70) * (217 - 102) / 20;      // 217→102
+    } else {
+      scaleFactor = 102 - (hmc - 90) * (102 - 13) / 10;       // 102→13
+    }
+    scaleFactor = std::max(scaleFactor, 13); // Never fully zero (keep some preference)
+    score = score * scaleFactor / 256;
+  }
 
   // Return from perspective of side to move
   return (pos.sideToMove() == WHITE) ? score : -score;

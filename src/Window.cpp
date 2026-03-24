@@ -356,12 +356,14 @@ void Window::drawPiece(Piece pc, Square sq) {
   int file = fileOf(sq);
   int rank = 7 - rankOf(sq);  // Flip for display
 
-  int padding = squareSize / 20;  // Reduced padding - pieces are larger now
+  // Render pieces slightly larger than the square with negative offset,
+  // letting the sprite's built-in transparent padding handle centering
+  int overflow = squareSize / 20;  // 5px at 100px squares
   SDL_Rect dstRect;
-  dstRect.x = file * squareSize + padding;
-  dstRect.y = rank * squareSize + padding;
-  dstRect.w = squareSize - 2 * padding;
-  dstRect.h = squareSize - 2 * padding;
+  dstRect.x = file * squareSize - overflow;
+  dstRect.y = rank * squareSize - overflow;
+  dstRect.w = squareSize + 2 * overflow;
+  dstRect.h = squareSize + 2 * overflow;
 
   SDL_RenderCopy(renderer, piecesTexture, &srcRect, &dstRect);
 }

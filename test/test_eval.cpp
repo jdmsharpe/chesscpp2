@@ -109,17 +109,16 @@ TEST_F(EvalTest, PassedPawn_BonusOverNoPasser) {
 // =============================================================================
 
 TEST_F(EvalTest, KingSafety_PawnShieldBetterThanOpen) {
-  // Simplified position: white king on g1 with intact pawn shield (f2, g2, h2)
-  // Black king on g8 with intact pawn shield -- symmetric material
+  // Middlegame position: queen+rook present so king safety matters.
+  // White king on g1 with intact pawn shield (f2, g2, h2), symmetric material.
   Position posSafe;
-  posSafe.setFromFEN("6k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1");
+  posSafe.setFromFEN("r1bq2k1/5ppp/8/8/8/8/5PPP/R1BQ2K1 w - - 0 1");
   int scoreSafe = Eval::evaluate(posSafe);
 
-  // Same material but white's pawn shield is destroyed (no pawns near king)
-  // White king on g1, pawns on a2, b2, c2 (far from king)
-  // Black king on g8 with intact pawn shield (f7, g7, h7)
+  // Same material but white's pawn shield destroyed (pawns far from king).
+  // In middlegame with queens, exposed king is a real liability.
   Position posExposed;
-  posExposed.setFromFEN("6k1/5ppp/8/8/8/8/PPP5/6K1 w - - 0 1");
+  posExposed.setFromFEN("r1bq2k1/5ppp/8/8/8/8/PPP5/R1BQ2K1 w - - 0 1");
   int scoreExposed = Eval::evaluate(posExposed);
 
   // The position with pawns shielding the king should evaluate better
@@ -329,6 +328,73 @@ TEST_F(EvalTest, KingPasserProximity_CloseKingBetter) {
   EXPECT_GT(scoreClose, scoreFar)
       << "King close to passer (" << scoreClose
       << ") should be better than king far away (" << scoreFar << ")";
+}
+
+// =============================================================================
+// Development
+// =============================================================================
+
+// =============================================================================
+// 50-Move Rule Scaling
+// =============================================================================
+
+TEST_F(EvalTest, FiftyMoveScaling_HighClockReducesEval) {
+  // Same position with halfmove clock 0 vs 80.
+  // With clock at 80, the eval should be scaled down.
+  Position posNormal;
+  posNormal.setFromFEN("4k3/8/8/8/4P3/8/8/4K3 w - - 0 1");
+  int scoreNormal = Eval::evaluate(posNormal);
+
+  Position posHighClock;
+  posHighClock.setFromFEN("4k3/8/8/8/4P3/8/8/4K3 w - - 80 1");
+  int scoreHighClock = Eval::evaluate(posHighClock);
+
+  // Normal eval should be positive (white has a pawn up)
+  EXPECT_GT(scoreNormal, 0);
+  // High clock eval should still be positive but significantly smaller
+  EXPECT_GT(scoreHighClock, 0);
+  EXPECT_LT(scoreHighClock, scoreNormal)
+      << "Eval with halfmove clock 80 (" << scoreHighClock
+      << ") should be smaller than clock 0 (" << scoreNormal << ")";
+}
+
+TEST_F(EvalTest, FiftyMoveScaling_VeryHighClockNearZero) {
+  // At halfmove clock 95, the eval should be nearly zero
+  Position posNormal;
+  posNormal.setFromFEN("4k3/8/8/8/4P3/8/8/4K3 w - - 0 1");
+  int scoreNormal = Eval::evaluate(posNormal);
+
+  Position posCritical;
+  posCritical.setFromFEN("4k3/8/8/8/4P3/8/8/4K3 w - - 95 1");
+  int scoreCritical = Eval::evaluate(posCritical);
+
+  // At clock 95, eval should be less than 30% of the normal eval
+  EXPECT_LT(scoreCritical * 10, scoreNormal * 3)
+      << "Eval at clock 95 (" << scoreCritical
+      << ") should be less than 30% of normal (" << scoreNormal << ")";
+}
+
+// =============================================================================
+// Unstoppable Passed Pawn (Rule of the Square)
+// =============================================================================
+
+TEST_F(EvalTest, UnstoppablePasser_OutsideSquareHugeBonus) {
+  // White pawn on e5, black king on a8 — king is outside the square of the
+  // pawn (pawn needs 2 moves to promote, king needs 5+ to reach e8).
+  // No enemy pieces to intercept.
+  Position posUnstoppable;
+  posUnstoppable.setFromFEN("k7/8/8/4P3/8/8/8/4K3 w - - 0 1");
+  int scoreUnstoppable = Eval::evaluate(posUnstoppable);
+
+  // Same setup but black king on f7 — can easily stop the pawn.
+  Position posStoppable;
+  posStoppable.setFromFEN("8/5k2/8/4P3/8/8/8/4K3 w - - 0 1");
+  int scoreStoppable = Eval::evaluate(posStoppable);
+
+  // Unstoppable passer should have a much higher eval (hundreds of cp difference)
+  EXPECT_GT(scoreUnstoppable, scoreStoppable + 200)
+      << "Unstoppable passer (" << scoreUnstoppable
+      << ") should be much better than stoppable (" << scoreStoppable << ")";
 }
 
 // =============================================================================
