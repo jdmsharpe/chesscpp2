@@ -1,104 +1,84 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Chess++ — bitboard chess engine with magic bitboards, UCI support, Syzygy tablebases, and Polyglot opening books. C++20.
 
-## Project Overview
-
-Chess++ with Bitboards is a high-performance chess engine using bitboard representation for fast move generation. The engine achieves ~37 million nodes/second at perft depth 5 using magic bitboards.
-
-## Build Commands
-
-### Standard Build
+## Build & Run
 
 ```bash
-mkdir -p build
-cd build
-cmake ..
-cmake --build .
-```
+mkdir -p build && cd build && cmake .. && cmake --build .
 
-### Running the Engine
-
-```bash
-# From build/ directory
+# From build/ directory:
 ./chesscpp2              # GUI mode (default)
-./chesscpp2 -c -d 6      # Play vs AI at depth 6 (default depth)
+./chesscpp2 -c -d 6      # Play vs AI at depth 6 (default)
 ./chesscpp2 --nogui -c   # Console mode
-./chesscpp2 --perft 5    # Run perft test to depth 5
+./chesscpp2 --perft 5    # Perft test to depth 5
 ./chesscpp2 --uci        # UCI mode (for GUIs/tournaments)
 ```
 
-### Testing
+## Testing
 
 ```bash
 # From build/ directory
-ctest                     # Run all tests
-./test/test_bitboard      # Run bitboard tests only
-./test/test_movegen       # Run move generation tests only
+ctest                          # Run all tests
+./test/test_bitboard           # Bitboard tests
+./test/test_movegen            # Move generation tests
+./test/test_position           # Position/make-unmake tests
+./test/test_polyglot           # Polyglot book tests
+
+# From repo root
+bash scripts/verify_perft.sh   # Verify perft node counts against known values (CI uses this)
 ```
+
+**Perft correctness** — expected from starting position: depth 1 = 20, depth 2 = 400, depth 3 = 8,902, depth 4 = 197,281, depth 5 = 4,865,609. Any deviation = move generation bug.
+
+## Dependencies
+
+- CMake 3.16+, C++20 (GCC 10+ / Clang 10+)
+- SDL2, SDL2_image: `sudo apt-get install libsdl2-dev libsdl2-image-dev`
+- Google Test (auto-fetched by CMake)
 
 ## Architecture
 
-### Bitboard-Based Representation
+Board uses 12 bitboards (6 piece types × 2 colors) + piece array for O(1) `pieceAt()`. Sliding piece attacks use magic bitboards for O(1) lookup (see `Magic.h/cpp`).
 
-The engine uses 64-bit integers (bitboards) to represent the chess board, where each bit corresponds to one square. This enables parallel operations on multiple squares using fast bitwise operations.
+Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 flags (normal/promotion/EP/castling). See `Types.h`.
 
-**Key data structures:**
+### Key Subsystems
 
-- 12 bitboards total: 6 piece types x 2 colors
-- Separate piece array for O(1) `pieceAt()` queries
-- All bitboard operations in [Bitboard.h](inc/Bitboard.h) / [Bitboard.cpp](src/Bitboard.cpp)
+| Subsystem | Files | Notes |
+|-----------|-------|-------|
+| Board/position | `Position.h/cpp` | make/unmakeMove, FEN parsing |
+| Move generation | `MoveGen.h/cpp` | Pseudo-legal → legality filter |
+| Magic bitboards | `Magic.h/cpp` | Pre-computed sliding attack tables |
+| Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
+| Search/eval | `AI.h/cpp` | Alpha-beta, TT, killer/history, LMR, null move pruning, quiescence |
+| UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
+| Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
+| Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`) |
+| Zobrist hashing | `Zobrist.h/cpp` | Position hashing for TT and repetition |
+| GUI | `Window.h/cpp` | SDL2 rendering |
+| Game logic | `Game.h/cpp` | Game controller, draw detection, rules |
+| Entry point | `main.cpp` | CLI arg parsing |
 
-### Magic Bitboards
+### Scripts (`scripts/`)
 
-Magic bitboards provide O(1) attack generation for sliding pieces (rooks, bishops, queens) using pre-computed lookup tables.
+- `self_play_test.py` — engine self-play
+- `tournament.py` — multi-engine tournaments
+- `watch_game.py` — visualize games in progress
+- `diagnose.py` — engine diagnostics
+- `depth8_vs_stockfish.py` — Stockfish benchmark
+- `test_preference.py` — preference testing
+- `verify_perft.sh` — perft verification (used by CI)
 
-**How it works:**
+## Critical Gotchas
 
-1. Extract relevant occupancy bits (excluding edges)
-2. Multiply by a magic number
-3. Right-shift to create an index into attack table
-4. Look up pre-computed attacks
+### unmakeMove must fully reverse makeMove
 
-**Implementation:** [Magic.h](inc/Magic.h) / [Magic.cpp](src/Magic.cpp)
+`unmakeMove()` in `Position.cpp` must undo ALL of `makeMove()`: normal captures, promotions (remove promoted piece, restore pawn), en passant (restore captured pawn on correct square), castling (move both king and rook back). Incomplete unmake → position corruption and segfaults.
 
-- Rook attack tables: ~107KB
-- Bishop attack tables: ~5KB
-- Magic numbers are hard-coded (pre-generated)
+### Edge wrapping in diagonal move generation
 
-### Move Generation Pipeline
-
-Legal move generation follows this pattern:
-
-1. Generate pseudo-legal moves (fast, bitboard-based)
-2. Make each move on the position
-3. Check if own king is in check (illegal if true)
-4. Unmake the move to restore position
-5. Only return moves that passed the legality test
-
-**Critical:** `unmakeMove()` in [Position.cpp](src/Position.cpp) must fully reverse ALL aspects of `makeMove()`, including:
-
-- Normal moves: restore piece and captured piece
-- Promotions: remove promoted piece, restore pawn
-- En passant: restore captured pawn on correct square
-- Castling: move both king and rook back
-
-**Common bug:** Incomplete `unmakeMove()` leads to position corruption and segfaults.
-
-### Move Representation
-
-Moves are encoded as 16-bit integers (see [Types.h](inc/Types.h)):
-
-- Bits 0-5: from square (0-63)
-- Bits 6-11: to square (0-63)
-- Bits 12-13: promotion piece (0=knight, 1=bishop, 2=rook, 3=queen)
-- Bits 14-15: move flags (normal, promotion, en passant, castling)
-
-### Edge Wrapping Prevention
-
-**Critical:** Diagonal move generation must check for edge wrapping. Without these checks, bishops/queens can illegally wrap around board edges (e.g., f8 to h1).
-
-Required checks in sliding move generation:
+Sliding piece diagonal generation must check for board edge wrapping, or bishops/queens will illegally wrap (e.g., f8→h1):
 
 ```cpp
 if (dir == 9 && fileOf(to) == FILE_A) break;   // NE wrapped
@@ -107,155 +87,18 @@ if (dir == -7 && fileOf(to) == FILE_A) break;  // SW wrapped
 if (dir == -9 && fileOf(to) == FILE_H) break;  // SE wrapped
 ```
 
-### AI Search
+### Polyglot uses separate Zobrist keys
 
-Minimax with alpha-beta pruning in [AI.cpp](src/AI.cpp):
+Polyglot hashing uses standardized Zobrist keys *different from the engine's internal keys*. Piece ordering: bp=0, wp=1, bn=2, wn=3, bb=4, wb=5, br=6, wr=7, bq=8, wq=9, bk=10, wk=11. En passant only included if capture is possible. Castling encoded as king-captures-rook.
 
-- Move ordering: captures first, then promotions, then center control
-- Piece-square tables for positional evaluation
-- Opening book support (Polyglot .bin format, fallback to `book.txt`)
-- 128MB transposition table with depth-preferred replacement
-- Killer move heuristic
-- History heuristic
-- Internal iterative deepening (IID)
-- Quiescence search (captures + checks at leaf nodes)
-- Null move pruning (with zugzwang detection)
-- Aspiration windows (for iterative deepening)
-- Late move reductions (LMR)
+## UCI Options
 
-**Performance by depth:**
+- `setoption name SyzygyPath value /path/to/syzygy` — Syzygy tablebase directory
+- `setoption name BookPath value /path/to/books/Titans.bin` — Polyglot opening book
 
-- Depth 3: ~0.1s per move (beginner)
-- Depth 4: ~1s per move (intermediate)
-- Depth 5: ~10s per move (advanced)
-- Depth 6: ~30s per move (default, recommended)
-- Depth 7+: 60s+ per move (expert)
+## Design Documents
 
-### UCI Protocol
-
-The engine supports the Universal Chess Interface (UCI) protocol for integration with chess GUIs and tournament software.
-
-**Implementation:** [UCI.h](inc/UCI.h) / [UCI.cpp](src/UCI.cpp)
-
-- Standard UCI commands: `uci`, `isready`, `position`, `go`, `stop`, `quit`
-- Supports FEN position loading and move sequences
-- Configurable search depth via `go depth N`
-- Time controls: `wtime`, `btime`, `winc`, `binc`, `movestogo`, `movetime`
-
-### Draw Detection
-
-The engine correctly detects all standard draw conditions:
-
-- **50-move rule**: Draw after 100 half-moves without capture or pawn move
-- **Threefold repetition**: Draw when same position occurs 3 times
-- **Insufficient material**: KvK, KNvK, KBvK, KBvKB (same-color bishops)
-
-### Syzygy Endgame Tablebases
-
-The engine supports Syzygy tablebases for perfect endgame play. Uses the Fathom library.
-
-**Setup:**
-
-1. Download Syzygy tablebases from [syzygy-tables.info](https://syzygy-tables.info/)
-2. Place `.rtbw` (WDL) and `.rtbz` (DTZ) files in a directory
-3. Configure via UCI: `setoption name SyzygyPath value /path/to/syzygy`
-
-**Implementation:** [Tablebase.h/cpp](inc/Tablebase.h) wrapping [lib/Fathom](lib/Fathom)
-
-- Probes at root for perfect play in tablebase positions
-- WDL (Win/Draw/Loss) probing during search
-- DTZ (Distance-To-Zero) for optimal move selection
-- Supports positions with up to 7 pieces (depending on downloaded tablebases)
-
-### Polyglot Opening Books
-
-The engine supports Polyglot opening books (.bin format) for strong opening play.
-
-**Implementation:** [Polyglot.h/cpp](inc/Polyglot.h)
-
-- Standard Polyglot format (16 bytes per entry: hash, move, weight, learn)
-- Uses 781 standardized random numbers for hash computation
-- Weighted random move selection from book moves
-- Binary search for efficient probing
-
-**Polyglot Hash Computation:**
-
-- Uses standardized Zobrist keys different from internal engine keys
-- Piece ordering: bp=0, wp=1, bn=2, wn=3, bb=4, wb=5, br=6, wr=7, bq=8, wq=9, bk=10, wk=11
-- En passant only included if capture is possible
-- Castling encoded as king-captures-rook
-
-**Setup:**
-
-1. Download Polyglot books (e.g., Titans.bin, Human.bin)
-2. Place in `books/` directory
-3. Configure via UCI: `setoption name BookPath value /path/to/books/Titans.bin`
-
-**Priority:** Polyglot book is checked first, then fallback to text-based `book.txt`
-
-## Component Organization
-
-### Core Engine Files
-
-- [Types.h](inc/Types.h) - Type definitions, constants, move encoding/decoding
-- [Bitboard.h/cpp](inc/Bitboard.h) - Bitboard operations, attack lookups
-- [Magic.h/cpp](inc/Magic.h) - Magic bitboard initialization and attack generation
-- [Position.h/cpp](inc/Position.h) - Board position, make/unmake moves, FEN parsing
-- [MoveGen.h/cpp](inc/MoveGen.h) - Legal and pseudo-legal move generation
-- [Zobrist.h/cpp](inc/Zobrist.h) - Zobrist hashing for positions
-- [AI.h/cpp](inc/AI.h) - Search algorithm with evaluation
-- [Tablebase.h/cpp](inc/Tablebase.h) - Syzygy tablebase probing (via Fathom)
-- [Polyglot.h/cpp](inc/Polyglot.h) - Polyglot opening book support
-- [Logger.h](inc/Logger.h) - Thread-safe logging utility
-
-### Interface Files
-
-- [Game.h/cpp](inc/Game.h) - Game controller, rules, game state
-- [Window.h/cpp](inc/Window.h) - SDL2 GUI implementation
-- [UCI.h/cpp](inc/UCI.h) - UCI protocol handler for GUI/tournament integration
-- [main.cpp](src/main.cpp) - Entry point, CLI argument parsing
-
-### Scripts
-
-- [scripts/](scripts/) - Python utilities for testing and tournaments
-  - `self_play_test.py` - Engine self-play testing
-  - `tournament.py` - Run tournaments between engines
-  - `watch_game.py` - Visualize games in progress
-  - `diagnose.py` - Engine diagnostics
-  - `depth8_vs_stockfish.py` - Benchmark against Stockfish
-
-### Build System
-
-- [CMakeLists.txt](CMakeLists.txt) - Main CMake config (C++20, SDL2 dependencies)
-- [test/CMakeLists.txt](test/CMakeLists.txt) - Test config using Google Test
-
-### Design Documents
-
-- [docs/plans/](docs/plans/) - Future feature designs
-  - `2025-10-30-lazy-smp-multithreading-design.md` - Lazy SMP parallel search design (not yet implemented)
-
-## Dependencies
-
-- CMake 3.16+
-- C++20 compiler (GCC 10+, Clang 10+)
-- SDL2 and SDL2_image (for GUI)
-- Google Test (auto-fetched for tests)
-
-Install SDL2 on Ubuntu: `sudo apt-get install libsdl2-dev libsdl2-image-dev`
-
-## Testing Strategy
-
-The test suite uses perft (performance test) to verify move generation correctness by counting all legal moves to a given depth.
-
-**Expected perft results from starting position:**
-
-- Depth 1: 20 nodes
-- Depth 2: 400 nodes
-- Depth 3: 8,902 nodes
-- Depth 4: 197,281 nodes
-- Depth 5: 4,865,609 nodes
-
-Any deviation indicates a bug in move generation.
+- `docs/plans/2025-10-30-lazy-smp-multithreading-design.md` — Lazy SMP parallel search (not yet implemented)
 
 ## Known Issues
 

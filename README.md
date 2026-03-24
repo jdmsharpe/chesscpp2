@@ -9,8 +9,9 @@ An improved chess engine implementation using bitboards for fast move generation
 - **Bitboard representation** - 64-bit integers for efficient board representation
 - **Magic bitboards** - Ultra-fast sliding piece (rook, bishop, queen) move generation
 - **Fast move generation** - Optimized legal move generation using bit operations
-- **AI with alpha-beta pruning** - Minimax search with move ordering and pruning
+- **AI with alpha-beta pruning** - Minimax search with move ordering, transposition tables, killer/history heuristics, null move pruning, LMR, aspiration windows, and quiescence search
 - **Piece-square tables** - Positional evaluation for better play
+- **UCI protocol** - Integration with chess GUIs and tournament software
 - **FEN support** - Load and save positions in Forsyth-Edwards Notation
 - **Syzygy tablebases** - Perfect endgame play with 3-4-5 piece tablebases
 - **Polyglot opening books** - Industry-standard .bin format opening books
@@ -66,8 +67,8 @@ brew install sdl2 sdl2_image
 # Play against AI
 ./chesscpp2 -c
 
-# Set AI search depth (default is 4)
-./chesscpp2 -c -d 5
+# Set AI search depth (default is 6)
+./chesscpp2 -c -d 6
 
 # Run in console mode (no GUI)
 ./chesscpp2 --nogui
@@ -77,6 +78,9 @@ brew install sdl2 sdl2_image
 
 # Run Perft test to verify move generation
 ./chesscpp2 --perft 5
+
+# UCI mode (for chess GUIs/tournaments)
+./chesscpp2 --uci
 
 # Show help
 ./chesscpp2 --help
@@ -155,9 +159,14 @@ info string Polyglot book move: e2e4
 3. **Magic.h/cpp** - Magic bitboard implementation for sliding pieces
 4. **Position.h/cpp** - Board position with bitboard representation
 5. **MoveGen.h/cpp** - Fast legal move generation
-6. **AI.h/cpp** - Minimax with alpha-beta pruning
+6. **AI.h/cpp** - Alpha-beta search with TT, killer/history, LMR, null move pruning, quiescence
 7. **Game.h/cpp** - Game controller and rules
 8. **Window.h/cpp** - SDL2 GUI implementation
+9. **UCI.h/cpp** - Universal Chess Interface protocol
+10. **Polyglot.h/cpp** - Polyglot opening book support
+11. **Tablebase.h/cpp** - Syzygy tablebase probing via Fathom
+12. **Zobrist.h/cpp** - Zobrist hashing for positions
+13. **Logger.h** - Thread-safe logging utility
 
 ### Bitboard Advantages
 
@@ -214,8 +223,16 @@ ctest
 Or run individual tests:
 
 ```bash
-./test/test_bitboard
-./test/test_movegen
+./test/test_bitboard      # Bitboard operations
+./test/test_movegen        # Move generation
+./test/test_position       # Position make/unmake
+./test/test_polyglot       # Polyglot book handling
+```
+
+Verify perft node counts against known values (also runs in CI):
+
+```bash
+bash scripts/verify_perft.sh
 ```
 
 ## Improvements Over Original chesscpp
@@ -246,6 +263,7 @@ Potential improvements:
 - [x] Threefold repetition detection (implemented)
 - [x] Insufficient material detection (implemented)
 - [x] Time controls (implemented - wtime/btime/winc/binc)
+- [ ] Lazy SMP multithreading (designed, not yet implemented — see `docs/plans/`)
 
 ## License
 
