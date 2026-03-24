@@ -233,6 +233,35 @@ std::vector<Move> generateCaptures(Position& pos) {
   return captures;
 }
 
+std::vector<Move> generateCheckingMoves(Position& pos) {
+  std::vector<Move> pseudoMoves = generatePseudoLegalMoves(pos);
+  std::vector<Move> checks;
+
+  for (Move move : pseudoMoves) {
+    Square to = toSquare(move);
+    // Skip captures — already handled by generateCaptures
+    if (pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT) {
+      continue;
+    }
+
+    // Make the move and check if it gives check
+    Color us = pos.sideToMove();
+    pos.makeMove(move);
+
+    bool givesCheck = pos.inCheck();
+    // Also verify legality: our king must not be in check
+    bool legal = !pos.isAttacked(BB::lsb(pos.pieces(us, KING)), pos.sideToMove());
+
+    pos.unmakeMove();
+
+    if (givesCheck && legal) {
+      checks.push_back(move);
+    }
+  }
+
+  return checks;
+}
+
 uint64_t perft(Position& pos, int depth) {
   if (depth == 0) return 1;
 

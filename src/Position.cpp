@@ -682,12 +682,6 @@ int Position::see(Move move) const {
   return gain[0];
 }
 
-// Recursive SEE - simulate capture sequence (DEPRECATED - use see() instead)
-int Position::seeCapture(Square, Color, Piece captured, Piece) const {
-  // This function is now unused but kept for backward compatibility
-  static const int pieceValues[6] = {100, 320, 330, 500, 900, 20000};
-  return pieceValues[typeOf(captured)];
-}
 
 // Count how many times the current position has occurred in the game history
 int Position::repetitionCount() const {

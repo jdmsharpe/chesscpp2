@@ -8,8 +8,8 @@
 #include <random>
 
 #include "Bitboard.h"
+#include "Eval.h"
 #include "Logger.h"
-#include "Magic.h"
 #include "MoveGen.h"
 #include "Tablebase.h"
 
@@ -246,7 +246,11 @@ Move AI::findBestMove(Position& pos) {
     }
 
     // Order moves based on previous iteration's best move
-    orderMoves(pos, rootMoves, 0, bestMove);
+    auto scoredRootMoves = orderMoves(pos, rootMoves, 0, bestMove);
+    rootMoves.clear();
+    for (const auto& sm : scoredRootMoves) {
+      rootMoves.push_back(sm.move);
+    }
 
     Move iterBestMove = rootMoves[0];
     int iterBestScore = std::numeric_limits<int>::min();
@@ -317,24 +321,10 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
 
   int alphaOrig = alpha;
   HashKey hash = pos.hash();
+  Move ttMove = 0;
 
-  // Transposition table lookup
-  size_t ttIndex = hash % TT_SIZE;
-  TTEntry& ttEntry = transpositionTable[ttIndex];
-
-  if (ttEntry.key == hash && ttEntry.depth >= depth) {
-    ttHits++;
-    if (ttEntry.flag == EXACT) {
-      return ttEntry.score;
-    } else if (ttEntry.flag == LOWERBOUND) {
-      alpha = std::max(alpha, ttEntry.score);
-    } else if (ttEntry.flag == UPPERBOUND) {
-      beta = std::min(beta, ttEntry.score);
-    }
-
-    if (alpha >= beta) {
-      return ttEntry.score;
-    }
+  if (auto score = probeTT(hash, depth, alpha, beta, ttMove)) {
+    return *score;
   }
 
   // Quiescence search at leaf nodes
@@ -343,8 +333,283 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     return quiescence(pos, alpha, beta, 0);
   }
 
-  // Null Move Pruning
-  // Try "passing" - if position is still good, we can prune
+  if (auto score = tryNullMovePruning(pos, depth, beta, ply)) {
+    return *score;
+  }
+
+  bool isPVNode = (beta - alpha) > 1;
+
+  auto pruning = canPrune(pos, depth, alpha, beta, isPVNode);
+  if (pruning.cutoff) return pruning.score;
+  bool futilityPrune = pruning.futilityPrune;
+
+  std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
+
+  // Checkmate or stalemate
+  if (moves.empty()) {
+    if (pos.inCheck()) {
+      // Checkmate - return low score (prefer shorter mates)
+      return -10000 + ply;
+    } else {
+      // Stalemate
+      return 0;
+    }
+  }
+
+  // Internal Iterative Deepening (IID)
+  // If no hash move at PV node, do shallow search to find one
+  if (!ttMove && isPVNode && depth >= 4) {
+    int iidDepth = depth - 2;
+    (void)negamax(pos, iidDepth, alpha, beta, ply);
+    // Re-probe TT to get the move found by IID
+    Move iidMove = 0;
+    int tmpAlpha = alpha, tmpBeta = beta;
+    (void)probeTT(hash, depth, tmpAlpha, tmpBeta, iidMove);
+    if (iidMove != 0) {
+      bool found = false;
+      for (Move m : moves) {
+        if (m == iidMove) { found = true; break; }
+      }
+      if (found) ttMove = iidMove;
+    }
+  }
+
+  auto scoredMoves = orderMoves(pos, moves, ply, ttMove);
+
+  int maxScore = std::numeric_limits<int>::min();
+  Move bestMove = scoredMoves[0].move;
+  pvLength[ply] = 0;  // Initialize PV length
+
+  for (size_t moveNum = 0; moveNum < scoredMoves.size(); ++moveNum) {
+    Move move = scoredMoves[moveNum].move;
+
+    bool isCapture = pos.pieceAt(toSquare(move)) != NO_PIECE ||
+                     moveType(move) == EN_PASSANT;
+    bool isPromotion = moveType(move) == PROMOTION;
+
+    // Apply futility pruning: skip quiet moves if position is hopeless
+    if (futilityPrune && moveNum > 0) {
+      // Skip quiet moves (non-captures, non-promotions)
+      if (!isCapture && !isPromotion) {
+        continue;
+      }
+    }
+
+    // Late Move Pruning - skip late quiet moves entirely at low depths
+    if (depth <= 3 && moveNum >= static_cast<size_t>(3 + depth * depth) &&
+        !isCapture && !isPromotion && !isKiller(move, ply)) {
+      continue;  // Prune this move entirely
+    }
+
+    int score = searchMove(pos, move, depth, alpha, beta, ply, moveNum,
+                           isCapture, isPromotion);
+
+    if (score > maxScore) {
+      maxScore = score;
+      bestMove = move;
+
+      // Update PV
+      pvTable[ply][0] = move;
+      for (int i = 0; i < pvLength[ply + 1]; ++i) {
+        pvTable[ply][i + 1] = pvTable[ply + 1][i];
+      }
+      pvLength[ply] = pvLength[ply + 1] + 1;
+    }
+
+    alpha = std::max(alpha, score);
+
+    if (alpha >= beta) {
+      // Beta cutoff - store killer move and countermove if not a capture
+      if (!isCapture) {
+        storeKiller(move, ply);
+        updateHistory(move, depth);
+
+        // Store countermove heuristic
+        // This move refuted the previous move
+        if (ply > 0 && pvLength[ply - 1] > 0) {
+          Move prevMove = pvTable[ply - 1][0];
+          countermoves[fromSquare(prevMove)][toSquare(prevMove)] = move;
+        }
+      }
+      break;
+    }
+  }
+
+  storeTT(hash, depth, maxScore, bestMove, alphaOrig, beta);
+
+  return maxScore;
+}
+
+int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
+  nodesSearched++;
+
+  // Check extension: if in check, search deeper
+  bool inCheck = pos.inCheck();
+
+  // Stand pat score (not valid if in check - must move)
+  int standPat = 0;
+  if (!inCheck) {
+    standPat = Eval::evaluate(pos);
+
+    if (standPat >= beta) {
+      return beta;
+    }
+
+    // Delta pruning margin (queen value)
+    constexpr int DELTA_MARGIN = 900;
+
+    // Delta pruning - if we're too far behind, even capturing a queen won't
+    // help
+    if (standPat + DELTA_MARGIN < alpha) {
+      return alpha;
+    }
+
+    if (alpha < standPat) {
+      alpha = standPat;
+    }
+  }
+
+  // Generate captures (and checks at qdepth 0)
+  std::vector<Move> captures = MoveGen::generateCaptures(pos);
+
+  // At first qsearch ply, also try checking moves to avoid horizon effect
+  if (qsDepth == 0 && !inCheck) {
+    std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+    captures.insert(captures.end(), checks.begin(), checks.end());
+  }
+
+  // Build ScoredMove list with cached SEE
+  std::vector<ScoredMove> scoredCaptures;
+  scoredCaptures.reserve(captures.size());
+  for (Move m : captures) {
+    scoredCaptures.push_back(scoreMoveWithSEE(pos, m, 0, 0));
+  }
+  std::sort(scoredCaptures.begin(), scoredCaptures.end(),
+            [](const ScoredMove& a, const ScoredMove& b) {
+              return a.score > b.score;
+            });
+
+  for (const ScoredMove& sm : scoredCaptures) {
+    // SEE pruning — use cached value
+    if (sm.seeValue != std::numeric_limits<int>::min() && sm.seeValue < 0) {
+      continue;
+    }
+
+    // Futility pruning
+    Square to = toSquare(sm.move);
+    Piece captured = pos.pieceAt(to);
+    if (captured != NO_PIECE) {
+      static const int pieceValues[6] = {100, 320, 330, 500, 900, 20000};
+      if (standPat + pieceValues[typeOf(captured)] + 200 < alpha) {
+        continue;
+      }
+    }
+
+    pos.makeMove(sm.move);
+    int score = -quiescence(pos, -beta, -alpha, qsDepth + 1);
+    pos.unmakeMove();
+
+    if (score >= beta) return beta;
+    if (score > alpha) alpha = score;
+  }
+
+  return alpha;
+}
+
+ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove) {
+  ScoredMove sm;
+  sm.move = move;
+  sm.seeValue = std::numeric_limits<int>::min();  // not computed
+
+  if (move == ttMove) {
+    sm.score = 1000000;
+    return sm;
+  }
+
+  sm.score = 0;
+  Square from = fromSquare(move);
+  Square to = toSquare(move);
+  Piece captured = pos.pieceAt(to);
+
+  if (captured != NO_PIECE || moveType(move) == EN_PASSANT) {
+    sm.seeValue = pos.see(move);  // compute and cache SEE
+    if (sm.seeValue > 0) {
+      sm.score = 20000 + sm.seeValue;
+    } else if (sm.seeValue == 0) {
+      sm.score = 10000;
+    } else {
+      sm.score = 5000 + sm.seeValue;
+    }
+  } else {
+    // Quiet moves — same as before
+    if (ply > 0 && pvLength[ply - 1] > 0) {
+      Move prevMove = pvTable[ply - 1][0];
+      Move countermove = countermoves[fromSquare(prevMove)][toSquare(prevMove)];
+      if (move == countermove) {
+        sm.score = 9500;
+      }
+    }
+    if (isKiller(move, ply)) {
+      sm.score += 9000;
+    }
+    sm.score += historyTable[from][to];
+  }
+
+  if (moveType(move) == PROMOTION) {
+    sm.score += 15000;
+  }
+
+  return sm;
+}
+
+std::vector<ScoredMove> AI::orderMoves(Position& pos, const std::vector<Move>& moves,
+                                       int ply, Move ttMove) {
+  std::vector<ScoredMove> scored;
+  scored.reserve(moves.size());
+  for (Move m : moves) {
+    scored.push_back(scoreMoveWithSEE(pos, m, ply, ttMove));
+  }
+  std::sort(scored.begin(), scored.end(), [](const ScoredMove& a, const ScoredMove& b) {
+    return a.score > b.score;
+  });
+  return scored;
+}
+
+void AI::updateHistory(Move move, int depth) {
+  Square from = fromSquare(move);
+  Square to = toSquare(move);
+
+  // Bonus increases quadratically with depth
+  int bonus = depth * depth;
+
+  // Gravity-based aging: reduce score proportionally
+  historyTable[from][to] +=
+      bonus - historyTable[from][to] * std::abs(bonus) / 10000;
+
+  // Clamp to prevent overflow
+  if (historyTable[from][to] > 10000) {
+    historyTable[from][to] = 10000;
+  } else if (historyTable[from][to] < -10000) {
+    historyTable[from][to] = -10000;
+  }
+}
+
+void AI::storeKiller(Move move, int ply) {
+  if (ply >= 64) return;
+
+  // Shift killers and add new one
+  if (killerMoves[ply][0] != move) {
+    killerMoves[ply][1] = killerMoves[ply][0];
+    killerMoves[ply][0] = move;
+  }
+}
+
+bool AI::isKiller(Move move, int ply) const {
+  if (ply >= 64) return false;
+  return killerMoves[ply][0] == move || killerMoves[ply][1] == move;
+}
+
+std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int beta, int ply) {
   const int NULL_MOVE_REDUCTION = 3;
   bool canDoNullMove = depth >= 3 && !pos.inCheck() && ply > 0;
 
@@ -382,970 +647,143 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     }
   }
 
-  // Determine if this is a PV node (wide window = principal variation)
-  bool isPVNode = (beta - alpha) > 1;
+  return std::nullopt;
+}
 
-  // Reverse Futility Pruning (Static Null Move Pruning)
-  // If position is so good that even with a margin we're above beta, prune
-  if (depth <= 6 && !isPVNode && !pos.inCheck()) {
-    int eval = evaluate(pos);
-    int rfpMargin = 100 * depth;  // 100, 200, 300... 600 for depths 1-6
+AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode) {
+  PruningResult result = {false, 0, false};
+
+  if (pos.inCheck()) return result;
+
+  int eval = Eval::evaluate(pos);
+
+  // Reverse Futility Pruning — only at non-PV nodes
+  if (depth <= 6 && !isPVNode) {
+    int rfpMargin = 100 * depth;
     if (eval - rfpMargin >= beta) {
-      return eval;  // Position too good, opponent won't allow this line
+      result.cutoff = true;
+      result.score = eval;
+      return result;
     }
   }
 
-  // Razoring
-  // If position is so bad that even qsearch can't save it, return qsearch score
-  if (depth <= 3 && !isPVNode && !pos.inCheck()) {
-    int eval = evaluate(pos);
-    int razoringMargin = 300 + 150 * depth;  // 450, 600, 750 for depths 1-3
+  // Razoring — only at non-PV nodes
+  if (depth <= 3 && !isPVNode) {
+    int razoringMargin = 300 + 150 * depth;
     if (eval + razoringMargin < alpha) {
       int qscore = quiescence(pos, alpha, beta, 0);
       if (qscore < alpha) {
-        return qscore;
+        result.cutoff = true;
+        result.score = qscore;
+        return result;
       }
     }
   }
 
-  // Futility Pruning
-  // At shallow depths, if position is so bad that even gaining material won't
-  // help, skip quiet moves
-  bool futilityPrune = false;
-  if (depth <= 3 && !pos.inCheck()) {
-    int futilityMargin = 100 + 200 * depth;  // 300, 500, 700 for depths 1-3
-    int futilityValue = evaluate(pos) + futilityMargin;
-
+  // Futility flag — applies at PV nodes too!
+  if (depth <= 3) {
+    int futilityMargin = 100 + 200 * depth;
+    int futilityValue = eval + futilityMargin;
     if (futilityValue <= alpha) {
-      futilityPrune = true;
+      result.futilityPrune = true;
     }
   }
 
-  std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
+  return result;
+}
 
-  // Checkmate or stalemate
-  if (moves.empty()) {
-    if (pos.inCheck()) {
-      // Checkmate - return low score (prefer shorter mates)
-      return -10000 + ply;
-    } else {
-      // Stalemate
-      return 0;
+int AI::searchMove(Position& pos, Move move, int depth, int alpha, int beta,
+                   int ply, size_t moveNum, bool isCapture, bool isPromotion) {
+  pos.makeMove(move);
+
+  bool givesCheck = pos.inCheck();
+  int extension = givesCheck ? 1 : 0;
+  int newDepth = depth - 1 + extension;
+
+  int score;
+
+  if (moveNum == 0) {
+    score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
+  } else {
+    int reduction = 0;
+    if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck &&
+        !isPromotion && !isKiller(move, ply)) {
+      reduction = 1;
+      if (depth >= 3 && moveNum >= 3) {
+        reduction = 1 + (depth >= 6 ? 1 : 0) + (moveNum >= 6 ? 1 : 0);
+        if (depth >= 8 && moveNum >= 10) {
+          reduction++;
+        }
+      }
+      reduction = std::min(reduction, newDepth);
+    }
+
+    score = -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
+
+    if (score > alpha && score < beta) {
+      if (reduction > 0) {
+        score = -negamax(pos, newDepth, -alpha - 1, -alpha, ply + 1);
+      }
+      if (score > alpha && score < beta) {
+        score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
+      }
     }
   }
 
-  // Move ordering - get TT move if available
-  Move ttMove = 0;
+  pos.unmakeMove();
+  return score;
+}
+
+std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove) {
+  size_t ttIndex = hash % TT_SIZE;
+  TTEntry& ttEntry = transpositionTable[ttIndex];
+
   if (ttEntry.key == hash) {
     ttMove = ttEntry.bestMove;
-  }
 
-  // Internal Iterative Deepening (IID)
-  // If no hash move at PV node, do shallow search to find one
-  if (!ttMove && isPVNode && depth >= 4) {
-    int iidDepth = depth - 2;
-    // Do shallow search to populate TT with a good move
-    (void)negamax(pos, iidDepth, alpha, beta, ply);
-
-    // Try to get the move from TT after shallow search
-    TTEntry& iidEntry = transpositionTable[ttIndex];
-    if (iidEntry.key == hash && iidEntry.bestMove != 0) {
-      ttMove = iidEntry.bestMove;
-      // Validate the move is in our move list
-      bool found = false;
-      for (Move m : moves) {
-        if (m == ttMove) {
-          found = true;
-          break;
-        }
+    if (ttEntry.depth >= depth) {
+      ttHits++;
+      if (ttEntry.flag == EXACT) {
+        return ttEntry.score;
+      } else if (ttEntry.flag == LOWERBOUND) {
+        alpha = std::max(alpha, ttEntry.score);
+      } else if (ttEntry.flag == UPPERBOUND) {
+        beta = std::min(beta, ttEntry.score);
       }
-      if (!found) ttMove = 0;  // Invalid move, ignore
+
+      if (alpha >= beta) {
+        return ttEntry.score;
+      }
     }
   }
 
-  orderMoves(pos, moves, ply, ttMove);
+  return std::nullopt;
+}
 
-  int maxScore = std::numeric_limits<int>::min();
-  Move bestMove = moves[0];
-  pvLength[ply] = 0;  // Initialize PV length
-
-  for (size_t moveNum = 0; moveNum < moves.size(); ++moveNum) {
-    Move move = moves[moveNum];
-
-    bool isCapture = pos.pieceAt(toSquare(move)) != NO_PIECE ||
-                     moveType(move) == EN_PASSANT;
-    bool isPromotion = moveType(move) == PROMOTION;
-
-    // Apply futility pruning: skip quiet moves if position is hopeless
-    if (futilityPrune && moveNum > 0) {
-      // Skip quiet moves (non-captures, non-promotions)
-      if (!isCapture && !isPromotion) {
-        continue;
-      }
-    }
-
-    // Late Move Pruning - skip late quiet moves entirely at low depths
-    if (depth <= 3 && moveNum >= static_cast<size_t>(3 + depth * depth) &&
-        !isCapture && !isPromotion && !isKiller(move, ply)) {
-      continue;  // Prune this move entirely
-    }
-
-    pos.makeMove(move);
-
-    // Check Extension - extend search when giving check
-    bool givesCheck = pos.inCheck();
-    int extension = 0;
-    if (givesCheck) {
-      extension = 1;  // Search one ply deeper when checking
-    }
-
-    int score;
-    int newDepth = depth - 1 + extension;
-
-    // Principal Variation Search (PVS)
-    if (moveNum == 0) {
-      // First move - search with full window
-      score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
-    } else {
-      // Late Move Reductions (LMR)
-      int reduction = 0;
-
-      // Don't reduce checking moves, captures, or promotions
-      if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck &&
-          !isPromotion && !isKiller(move, ply)) {
-        // More aggressive reduction formula: log(depth) * log(moveNum)
-        reduction = 1;
-        if (depth >= 3 && moveNum >= 3) {
-          // Approximate log reduction: reduction increases with depth and move
-          // number
-          reduction = 1 + (depth >= 6 ? 1 : 0) + (moveNum >= 6 ? 1 : 0);
-          if (depth >= 8 && moveNum >= 10) {
-            reduction++;  // Extra reduction for very deep/late moves
-          }
-        }
-        // Clamp reduction to prevent over-reduction
-        reduction = std::min(reduction, newDepth);
-      }
-
-      // PVS: Try null window search first
-      score = -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
-
-      // If null window search fails high, do full re-search
-      if (score > alpha && score < beta) {
-        // Re-search at full depth if we reduced
-        if (reduction > 0) {
-          score = -negamax(pos, newDepth, -alpha - 1, -alpha, ply + 1);
-        }
-
-        // Full window re-search if still beats alpha
-        if (score > alpha && score < beta) {
-          score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
-        }
-      }
-    }
-
-    pos.unmakeMove();
-
-    if (score > maxScore) {
-      maxScore = score;
-      bestMove = move;
-
-      // Update PV
-      pvTable[ply][0] = move;
-      for (int i = 0; i < pvLength[ply + 1]; ++i) {
-        pvTable[ply][i + 1] = pvTable[ply + 1][i];
-      }
-      pvLength[ply] = pvLength[ply + 1] + 1;
-    }
-
-    alpha = std::max(alpha, score);
-
-    if (alpha >= beta) {
-      // Beta cutoff - store killer move and countermove if not a capture
-      bool isCapture = pos.pieceAt(toSquare(move)) != NO_PIECE ||
-                       moveType(move) == EN_PASSANT;
-      if (!isCapture) {
-        storeKiller(move, ply);
-        updateHistory(move, depth);
-
-        // Store countermove heuristic
-        // This move refuted the previous move
-        if (ply > 0 && pvLength[ply - 1] > 0) {
-          Move prevMove = pvTable[ply - 1][0];
-          countermoves[fromSquare(prevMove)][toSquare(prevMove)] = move;
-        }
-      }
-      break;
-    }
-  }
-
-  // Store in transposition table with depth-preferred replacement
+void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta) {
+  size_t ttIndex = hash % TT_SIZE;
   TTEntry& entry = transpositionTable[ttIndex];
 
-  // Replace if: empty slot, same position, deeper search, or older entry
-  bool shouldReplace = (entry.key == 0) ||        // Empty slot
-                       (entry.key == hash) ||     // Same position
-                       (entry.depth <= depth) ||  // Deeper search
-                       (entry.age != ttAge);      // Old entry
+  bool shouldReplace = (entry.key == 0) ||
+                       (entry.key == hash) ||
+                       (entry.depth <= depth) ||
+                       (entry.age != ttAge);
 
   if (shouldReplace) {
     entry.key = hash;
     entry.depth = depth;
-    entry.score = maxScore;
+    entry.score = score;
     entry.bestMove = bestMove;
     entry.age = ttAge;
 
-    if (maxScore <= alphaOrig) {
+    if (score <= alphaOrig) {
       entry.flag = UPPERBOUND;
-    } else if (maxScore >= beta) {
+    } else if (score >= beta) {
       entry.flag = LOWERBOUND;
     } else {
       entry.flag = EXACT;
     }
   }
-
-  return maxScore;
-}
-
-int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
-  nodesSearched++;
-
-  // Check extension: if in check, search deeper
-  bool inCheck = pos.inCheck();
-
-  // Stand pat score (not valid if in check - must move)
-  int standPat = 0;
-  if (!inCheck) {
-    standPat = evaluate(pos);
-
-    if (standPat >= beta) {
-      return beta;
-    }
-
-    // Delta pruning margin (queen value)
-    constexpr int DELTA_MARGIN = 900;
-
-    // Delta pruning - if we're too far behind, even capturing a queen won't
-    // help
-    if (standPat + DELTA_MARGIN < alpha) {
-      return alpha;
-    }
-
-    if (alpha < standPat) {
-      alpha = standPat;
-    }
-  }
-
-  // Generate captures (and checks at qdepth 0)
-  std::vector<Move> captures = MoveGen::generateCaptures(pos);
-
-  // At first qsearch ply, also try checking moves to avoid horizon effect
-  std::vector<Move> checks;
-  if (qsDepth == 0 && !inCheck) {
-    std::vector<Move> allMoves = MoveGen::generateLegalMoves(pos);
-    for (Move m : allMoves) {
-      // Skip if already a capture
-      bool isCapture =
-          pos.pieceAt(toSquare(m)) != NO_PIECE || moveType(m) == EN_PASSANT;
-      if (!isCapture) {
-        // Check if move gives check
-        pos.makeMove(m);
-        bool givesCheck = pos.inCheck();
-        pos.unmakeMove();
-        if (givesCheck) {
-          checks.push_back(m);
-        }
-      }
-    }
-    // Merge checks into captures list
-    captures.insert(captures.end(), checks.begin(), checks.end());
-  }
-
-  // Order captures by SEE
-  std::sort(captures.begin(), captures.end(), [&](Move a, Move b) {
-    return getMoveScore(pos, a, 0, 0) > getMoveScore(pos, b, 0, 0);
-  });
-
-  for (Move move : captures) {
-    // SEE pruning - skip obviously losing captures
-    int seeValue = pos.see(move);
-    if (seeValue < 0) {
-      continue;  // Skip bad captures
-    }
-
-    // Futility pruning - even if this capture succeeds, can it improve alpha?
-    Square to = toSquare(move);
-    Piece captured = pos.pieceAt(to);
-    if (captured != NO_PIECE) {
-      static const int pieceValues[6] = {100, 320, 330, 500, 900, 20000};
-      if (standPat + pieceValues[typeOf(captured)] + 200 < alpha) {
-        continue;  // Even capturing this piece won't help
-      }
-    }
-
-    pos.makeMove(move);
-    int score = -quiescence(pos, -beta, -alpha, qsDepth + 1);
-    pos.unmakeMove();
-
-    if (score >= beta) {
-      return beta;
-    }
-
-    if (score > alpha) {
-      alpha = score;
-    }
-  }
-
-  return alpha;
-}
-
-// Piece-square tables for positional evaluation (constexpr for compile-time
-// init)
-namespace PST {
-// Pawns - STRONGLY encourage center control and advancement
-constexpr int pawn[64] = {
-    0,   0,   0,   0,   0,   0,   0,   0,    // Rank 1
-    5,   10,  10, -20, -20,  10,  10,  5,    // Rank 2 (discourage early edge pawns)
-    5,   10,  20,  40,  40,  20,  10,  5,    // Rank 3 (increased center)
-    10,  15,  30,  70,  70,  30,  15,  10,   // Rank 4 (MAJOR bonus for e4/d4!)
-    15,  20,  35,  80,  80,  35,  20,  15,   // Rank 5 (advanced center - huge bonus)
-    20,  25,  30,  35,  35,  30,  25,  20,   // Rank 6
-    50,  50,  50,  50,  50,  50,  50,  50,   // Rank 7 (about to promote)
-    0,   0,   0,   0,   0,   0,   0,   0};   // Rank 8
-
-// Knights - heavily prefer center, punish edges
-constexpr int knight[64] = {
-    -50, -40, -30, -25, -25, -30, -40, -50,  // Rank 1 (bad)
-    -40, -20,   0,   5,   5,   0, -20, -40,  // Rank 2
-    -30,   5,  10,  15,  15,  10,   5, -30,  // Rank 3
-    -25,   5,  15,  20,  20,  15,   5, -25,  // Rank 4
-    -25,   5,  15,  20,  20,  15,   5, -25,  // Rank 5
-    -30,   5,  10,  15,  15,  10,   5, -30,  // Rank 6
-    -40, -20,   0,   5,   5,   0, -20, -40,  // Rank 7
-    -50, -40, -30, -25, -25, -30, -40, -50}; // Rank 8 (very bad)
-
-// Bishops - prefer long diagonals and center
-constexpr int bishop[64] = {
-    -20, -10, -10, -10, -10, -10, -10, -20,  // Rank 1
-    -10,   5,   0,   0,   0,   0,   5, -10,  // Rank 2
-    -10,  10,  10,  10,  10,  10,  10, -10,  // Rank 3
-    -10,   0,  10,  15,  15,  10,   0, -10,  // Rank 4
-    -10,   5,   5,  15,  15,   5,   5, -10,  // Rank 5
-    -10,   0,   5,  10,  10,   5,   0, -10,  // Rank 6
-    -10,   5,   0,   0,   0,   0,   5, -10,  // Rank 7
-    -20, -10, -10, -10, -10, -10, -10, -20}; // Rank 8
-
-// Rooks - prefer 7th rank and open files (back rank OK)
-constexpr int rook[64] = {
-     0,   0,   0,   5,   5,   0,   0,   0,   // Rank 1
-    20,  20,  20,  20,  20,  20,  20,  20,   // Rank 2 (7th rank for black)
-    -5,   0,   0,   0,   0,   0,   0,  -5,   // Rank 3
-    -5,   0,   0,   0,   0,   0,   0,  -5,   // Rank 4
-    -5,   0,   0,   0,   0,   0,   0,  -5,   // Rank 5
-    -5,   0,   0,   0,   0,   0,   0,  -5,   // Rank 6
-    -5,   0,   0,   0,   0,   0,   0,  -5,   // Rank 7
-     0,   0,   0,   0,   0,   0,   0,   0};  // Rank 8
-
-// Kings - stay safe in middlegame (castled position)
-constexpr int kingMiddle[64] = {
-     20,  30,  10,   0,   0,  10,  30,  20,  // Rank 1 (castle!)
-    -10, -20, -20, -20, -20, -20, -20, -10,  // Rank 2 (don't advance)
-    -20, -30, -30, -40, -40, -30, -30, -20,  // Rank 3
-    -30, -40, -40, -50, -50, -40, -40, -30,  // Rank 4
-    -30, -40, -40, -50, -50, -40, -40, -30,  // Rank 5
-    -30, -40, -40, -50, -50, -40, -40, -30,  // Rank 6
-    -30, -40, -40, -50, -50, -40, -40, -30,  // Rank 7
-    -30, -40, -40, -50, -50, -40, -40, -30}; // Rank 8
-}  // namespace PST
-
-int AI::evaluate(const Position& pos) {
-  // Material evaluation
-  int material = pos.materialCount(WHITE) - pos.materialCount(BLACK);
-
-  int positional = 0;
-
-  // Evaluate white pieces
-  Bitboard pawns = pos.pieces(WHITE, PAWN);
-  while (pawns) {
-    Square sq = BB::popLsb(pawns);
-    positional += PST::pawn[sq];
-  }
-
-  Bitboard knights = pos.pieces(WHITE, KNIGHT);
-  while (knights) {
-    Square sq = BB::popLsb(knights);
-    positional += PST::knight[sq];
-  }
-
-  Bitboard bishops = pos.pieces(WHITE, BISHOP);
-  while (bishops) {
-    Square sq = BB::popLsb(bishops);
-    positional += PST::bishop[sq];
-  }
-
-  Bitboard rooks = pos.pieces(WHITE, ROOK);
-  while (rooks) {
-    Square sq = BB::popLsb(rooks);
-    positional += PST::rook[sq];
-  }
-
-  Bitboard kings = pos.pieces(WHITE, KING);
-  while (kings) {
-    Square sq = BB::popLsb(kings);
-    positional += PST::kingMiddle[sq];
-  }
-
-  // Evaluate black pieces (flip board)
-  pawns = pos.pieces(BLACK, PAWN);
-  while (pawns) {
-    Square sq = BB::popLsb(pawns);
-    positional -= PST::pawn[sq ^ 56];  // Flip rank
-  }
-
-  knights = pos.pieces(BLACK, KNIGHT);
-  while (knights) {
-    Square sq = BB::popLsb(knights);
-    positional -= PST::knight[sq ^ 56];
-  }
-
-  bishops = pos.pieces(BLACK, BISHOP);
-  while (bishops) {
-    Square sq = BB::popLsb(bishops);
-    positional -= PST::bishop[sq ^ 56];
-  }
-
-  rooks = pos.pieces(BLACK, ROOK);
-  while (rooks) {
-    Square sq = BB::popLsb(rooks);
-    positional -= PST::rook[sq ^ 56];
-  }
-
-  kings = pos.pieces(BLACK, KING);
-  while (kings) {
-    Square sq = BB::popLsb(kings);
-    positional -= PST::kingMiddle[sq ^ 56];
-  }
-
-  // Add advanced evaluation features
-  int pawnStructure =
-      evaluatePawnStructure(pos, WHITE) - evaluatePawnStructure(pos, BLACK);
-  int kingSafety =
-      evaluateKingSafety(pos, WHITE) - evaluateKingSafety(pos, BLACK);
-  int mobility = evaluateMobility(pos, WHITE) - evaluateMobility(pos, BLACK);
-  int development =
-      evaluateDevelopment(pos, WHITE) - evaluateDevelopment(pos, BLACK);
-  int rookScore = evaluateRooks(pos, WHITE) - evaluateRooks(pos, BLACK);
-  int bishopScore = evaluateBishops(pos, WHITE) - evaluateBishops(pos, BLACK);
-  int knightScore = evaluateKnights(pos, WHITE) - evaluateKnights(pos, BLACK);
-
-  // Tapered evaluation - blend opening/endgame scores based on game phase
-  int phase = getGamePhase(pos);  // 0 (endgame) to 256 (opening)
-
-  // Opening scores - full weight (development matters most in opening!)
-  int openingScore = material + positional + mobility + kingSafety +
-                     pawnStructure + development + rookScore + bishopScore +
-                     knightScore;
-
-  // Endgame scores - adjust weights
-  // In endgame: reduce positional/mobility, reduce king safety, increase pawn
-  // structure, ignore development, increase rook value (rooks dominate endgame)
-  int endgameScore = material + (positional / 2) + (mobility / 2) +
-                     (kingSafety / 4) + (pawnStructure * 3 / 2) +
-                     (rookScore * 3 / 2) + bishopScore + knightScore;
-
-  // Interpolate between opening and endgame
-  int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
-
-  // Return from perspective of side to move
-  return (pos.sideToMove() == WHITE) ? score : -score;
-}
-
-int AI::evaluatePawnStructure(const Position& pos, Color c) const {
-  int score = 0;
-  Bitboard pawns = pos.pieces(c, PAWN);
-  Bitboard enemyPawns = pos.pieces(~c, PAWN);
-
-  while (pawns) {
-    Square sq = BB::popLsb(pawns);
-    int file = fileOf(sq);
-    int rank = rankOf(sq);
-
-    // Doubled pawns penalty
-    Bitboard filePawns = pos.pieces(c, PAWN) & BB::fileBB(file);
-    if (BB::popCount(filePawns) > 1) {
-      score -= 10;  // Penalty for doubled pawns
-    }
-
-    // Isolated pawns penalty
-    Bitboard adjacentFiles = 0ULL;
-    if (file > 0) adjacentFiles |= BB::fileBB(file - 1);
-    if (file < 7) adjacentFiles |= BB::fileBB(file + 1);
-
-    if (!(pos.pieces(c, PAWN) & adjacentFiles)) {
-      score -= 15;  // Penalty for isolated pawns
-    }
-
-    // Passed pawns bonus
-    Bitboard passedMask = 0ULL;
-    if (c == WHITE) {
-      // For white, check files ahead (higher ranks)
-      for (int r = rank + 1; r < 8; ++r) {
-        passedMask |= BB::squareBB(r * 8 + file);
-        if (file > 0) passedMask |= BB::squareBB(r * 8 + file - 1);
-        if (file < 7) passedMask |= BB::squareBB(r * 8 + file + 1);
-      }
-    } else {
-      // For black, check files ahead (lower ranks)
-      for (int r = rank - 1; r >= 0; --r) {
-        passedMask |= BB::squareBB(r * 8 + file);
-        if (file > 0) passedMask |= BB::squareBB(r * 8 + file - 1);
-        if (file < 7) passedMask |= BB::squareBB(r * 8 + file + 1);
-      }
-    }
-
-    if (!(enemyPawns & passedMask)) {
-      // Passed pawn bonus increases with advancement
-      int bonus = c == WHITE ? (rank - 1) * 10 : (6 - rank) * 10;
-      score += 20 + bonus;
-    } else {
-      // Check for backward pawns (not passed and cannot be defended by pawns)
-      // A pawn is backward if:
-      // 1. No friendly pawns on adjacent files can support it (all behind)
-      // 2. Enemy pawns control the square in front of it
-
-      bool hasSupport = false;
-      Bitboard supportMask = 0ULL;
-
-      // Check for supporting pawns on adjacent files behind this pawn
-      if (c == WHITE) {
-        for (int r = 0; r <= rank; ++r) {
-          if (file > 0) supportMask |= BB::squareBB(r * 8 + file - 1);
-          if (file < 7) supportMask |= BB::squareBB(r * 8 + file + 1);
-        }
-      } else {
-        for (int r = rank; r < 8; ++r) {
-          if (file > 0) supportMask |= BB::squareBB(r * 8 + file - 1);
-          if (file < 7) supportMask |= BB::squareBB(r * 8 + file + 1);
-        }
-      }
-
-      if (pos.pieces(c, PAWN) & supportMask) {
-        hasSupport = true;
-      }
-
-      // If no support and not passed, this is a backward pawn
-      if (!hasSupport && !((pos.pieces(c, PAWN) & adjacentFiles) != 0)) {
-        score -= 12;  // Backward pawn penalty
-      }
-    }
-
-    // Pawn chain bonus: pawns defending each other diagonally
-    Bitboard defenderMask = BB::pawnAttacks(~c, sq);
-    if (defenderMask & pos.pieces(c, PAWN)) {
-      score += 5;  // Small bonus for being part of a pawn chain
-    }
-  }
-
-  return score;
-}
-
-int AI::evaluateKingSafety(const Position& pos, Color c) const {
-  int score = 0;
-  Square kingSq = BB::lsb(pos.pieces(c, KING));
-  int kingFile = fileOf(kingSq);
-
-  // Pawn shield bonus (pawns in front of king)
-  Bitboard pawns = pos.pieces(c, PAWN);
-  if (c == WHITE) {
-    // Check pawns on rank 2 and 3 near king
-    for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1);
-         ++f) {
-      if (pawns & BB::squareBB(1 * 8 + f)) score += 10;  // Pawn on 2nd rank
-      if (pawns & BB::squareBB(2 * 8 + f)) score += 5;   // Pawn on 3rd rank
-    }
-  } else {
-    // Check pawns on rank 7 and 6 near king
-    for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1);
-         ++f) {
-      if (pawns & BB::squareBB(6 * 8 + f)) score += 10;  // Pawn on 7th rank
-      if (pawns & BB::squareBB(5 * 8 + f)) score += 5;   // Pawn on 6th rank
-    }
-  }
-
-  // Open file near king penalty
-  for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1); ++f) {
-    Bitboard filePawns =
-        (pos.pieces(WHITE, PAWN) | pos.pieces(BLACK, PAWN)) & BB::fileBB(f);
-    if (!filePawns) {
-      score -= 20;  // Open file near king is dangerous
-    }
-  }
-
-  return score;
-}
-
-int AI::evaluateMobility(const Position& pos, Color c) {
-  // Count pseudo-legal moves as mobility metric
-  int mobility = 0;
-
-  // Knights
-  Bitboard knights = pos.pieces(c, KNIGHT);
-  while (knights) {
-    Square sq = BB::popLsb(knights);
-    Bitboard attacks = BB::knightAttacks(sq) & ~pos.pieces(c);
-    mobility += BB::popCount(attacks);
-  }
-
-  // Bishops
-  Bitboard bishops = pos.pieces(c, BISHOP);
-  while (bishops) {
-    Square sq = BB::popLsb(bishops);
-    Bitboard attacks =
-        Magic::bishopAttacks(sq, pos.occupied()) & ~pos.pieces(c);
-    mobility += BB::popCount(attacks);
-  }
-
-  // Rooks
-  Bitboard rooks = pos.pieces(c, ROOK);
-  while (rooks) {
-    Square sq = BB::popLsb(rooks);
-    Bitboard attacks = Magic::rookAttacks(sq, pos.occupied()) & ~pos.pieces(c);
-    mobility += BB::popCount(attacks);
-  }
-
-  // Queens
-  Bitboard queens = pos.pieces(c, QUEEN);
-  while (queens) {
-    Square sq = BB::popLsb(queens);
-    Bitboard attacks = (Magic::bishopAttacks(sq, pos.occupied()) |
-                        Magic::rookAttacks(sq, pos.occupied())) &
-                       ~pos.pieces(c);
-    mobility += BB::popCount(attacks);
-  }
-
-  // Weight mobility (each move worth ~2 centipawns)
-  return mobility * 2;
-}
-
-int AI::getGamePhase(const Position& pos) const {
-  // Calculate game phase based on material
-  // Opening: 256, Endgame: 0
-  int phase = 0;
-
-  // Knights and bishops: 1 point each
-  phase += BB::popCount(pos.pieces(WHITE, KNIGHT)) * 1;
-  phase += BB::popCount(pos.pieces(BLACK, KNIGHT)) * 1;
-  phase += BB::popCount(pos.pieces(WHITE, BISHOP)) * 1;
-  phase += BB::popCount(pos.pieces(BLACK, BISHOP)) * 1;
-
-  // Rooks: 2 points each
-  phase += BB::popCount(pos.pieces(WHITE, ROOK)) * 2;
-  phase += BB::popCount(pos.pieces(BLACK, ROOK)) * 2;
-
-  // Queens: 4 points each
-  phase += BB::popCount(pos.pieces(WHITE, QUEEN)) * 4;
-  phase += BB::popCount(pos.pieces(BLACK, QUEEN)) * 4;
-
-  // Starting phase is 24 (4 knights + 4 bishops + 4 rooks + 2 queens = 4+4+8+8)
-  // Scale to 256 for opening, 0 for endgame
-  const int TOTAL_PHASE = 24;
-  return std::min(256, (phase * 256 + TOTAL_PHASE / 2) / TOTAL_PHASE);
-}
-
-int AI::evaluateDevelopment(const Position& pos, Color c) const {
-  int score = 0;
-
-  // Penalty for pieces still on starting squares (only in opening/middlegame)
-  if (c == WHITE) {
-    // Knights on starting squares
-    if (pos.pieceAt(B1) == makePiece(WHITE, KNIGHT)) score -= 20;
-    if (pos.pieceAt(G1) == makePiece(WHITE, KNIGHT)) score -= 20;
-
-    // Bishops on starting squares
-    if (pos.pieceAt(C1) == makePiece(WHITE, BISHOP)) score -= 15;
-    if (pos.pieceAt(F1) == makePiece(WHITE, BISHOP)) score -= 15;
-
-    // Rooks on starting squares (less penalty)
-    if (pos.pieceAt(A1) == makePiece(WHITE, ROOK)) score -= 5;
-    if (pos.pieceAt(H1) == makePiece(WHITE, ROOK)) score -= 5;
-
-    // Queen moved too early penalty
-    Square queenSq = BB::lsb(pos.pieces(WHITE, QUEEN));
-    if (queenSq != D1 && queenSq != NO_SQUARE) {
-      // Queen is off starting square - check if minor pieces developed
-      int minorsDeveloped = 0;
-      if (pos.pieceAt(B1) != makePiece(WHITE, KNIGHT)) minorsDeveloped++;
-      if (pos.pieceAt(G1) != makePiece(WHITE, KNIGHT)) minorsDeveloped++;
-      if (pos.pieceAt(C1) != makePiece(WHITE, BISHOP)) minorsDeveloped++;
-      if (pos.pieceAt(F1) != makePiece(WHITE, BISHOP)) minorsDeveloped++;
-
-      // Penalty if queen moved before developing pieces
-      if (minorsDeveloped < 2) score -= 30;
-    }
-
-    // Castling bonus
-    Square kingSq = BB::lsb(pos.pieces(WHITE, KING));
-    if (kingSq == G1 || kingSq == C1) {
-      score += 40;  // Big bonus for castling
-    }
-
-    // Center pawn bonus (e4/d4) - INCREASED to encourage central play
-    if (pos.pieceAt(E4) == makePiece(WHITE, PAWN)) score += 50;
-    if (pos.pieceAt(D4) == makePiece(WHITE, PAWN)) score += 50;
-
-  } else {  // BLACK
-    // Knights on starting squares
-    if (pos.pieceAt(B8) == makePiece(BLACK, KNIGHT)) score -= 20;
-    if (pos.pieceAt(G8) == makePiece(BLACK, KNIGHT)) score -= 20;
-
-    // Bishops on starting squares
-    if (pos.pieceAt(C8) == makePiece(BLACK, BISHOP)) score -= 15;
-    if (pos.pieceAt(F8) == makePiece(BLACK, BISHOP)) score -= 15;
-
-    // Rooks on starting squares (less penalty)
-    if (pos.pieceAt(A8) == makePiece(BLACK, ROOK)) score -= 5;
-    if (pos.pieceAt(H8) == makePiece(BLACK, ROOK)) score -= 5;
-
-    // Queen moved too early penalty
-    Square queenSq = BB::lsb(pos.pieces(BLACK, QUEEN));
-    if (queenSq != D8 && queenSq != NO_SQUARE) {
-      int minorsDeveloped = 0;
-      if (pos.pieceAt(B8) != makePiece(BLACK, KNIGHT)) minorsDeveloped++;
-      if (pos.pieceAt(G8) != makePiece(BLACK, KNIGHT)) minorsDeveloped++;
-      if (pos.pieceAt(C8) != makePiece(BLACK, BISHOP)) minorsDeveloped++;
-      if (pos.pieceAt(F8) != makePiece(BLACK, BISHOP)) minorsDeveloped++;
-
-      if (minorsDeveloped < 2) score -= 30;
-    }
-
-    // Castling bonus
-    Square kingSq = BB::lsb(pos.pieces(BLACK, KING));
-    if (kingSq == G8 || kingSq == C8) {
-      score += 40;  // Big bonus for castling
-    }
-
-    // Center pawn bonus (e5/d5) - INCREASED to encourage central play
-    if (pos.pieceAt(E5) == makePiece(BLACK, PAWN)) score += 50;
-    if (pos.pieceAt(D5) == makePiece(BLACK, PAWN)) score += 50;
-  }
-
-  return score;
-}
-
-int AI::evaluateRooks(const Position& pos, Color c) const {
-  int score = 0;
-  Bitboard rooks = pos.pieces(c, ROOK);
-  Bitboard ourPawns = pos.pieces(c, PAWN);
-  Bitboard enemyPawns = pos.pieces(~c, PAWN);
-
-  while (rooks) {
-    Square sq = BB::popLsb(rooks);
-    int file = fileOf(sq);
-    Bitboard fileMask = BB::fileBB(file);
-
-    // Check if file is open (no pawns) or semi-open (no our pawns)
-    bool hasOurPawns = (ourPawns & fileMask) != 0;
-    bool hasEnemyPawns = (enemyPawns & fileMask) != 0;
-
-    if (!hasOurPawns && !hasEnemyPawns) {
-      // Rook on open file: +25 bonus
-      score += 25;
-    } else if (!hasOurPawns && hasEnemyPawns) {
-      // Rook on semi-open file (attacking enemy pawns): +15 bonus
-      score += 15;
-    }
-
-    // Bonus for rook on 7th rank (or 2nd rank for black)
-    int rank = rankOf(sq);
-    if ((c == WHITE && rank == RANK_7) || (c == BLACK && rank == RANK_2)) {
-      score += 20;
-    }
-  }
-
-  return score;
-}
-
-int AI::evaluateBishops(const Position& pos, Color c) const {
-  int score = 0;
-  Bitboard bishops = pos.pieces(c, BISHOP);
-
-  // Bishop pair bonus: +30
-  if (BB::popCount(bishops) >= 2) {
-    score += 30;
-  }
-
-  return score;
-}
-
-int AI::evaluateKnights(const Position& pos, Color c) const {
-  int score = 0;
-  Bitboard knights = pos.pieces(c, KNIGHT);
-  Bitboard ourPawns = pos.pieces(c, PAWN);
-  Bitboard enemyPawns = pos.pieces(~c, PAWN);
-
-  while (knights) {
-    Square sq = BB::popLsb(knights);
-    int file = fileOf(sq);
-    int rank = rankOf(sq);
-
-    // Knight outpost detection:
-    // - On 4th, 5th, or 6th rank (for white) / 5th, 4th, 3rd rank (for black)
-    // - Defended by our pawn
-    // - Cannot be attacked by enemy pawns
-
-    bool isOutpostRank = false;
-    if (c == WHITE && (rank == RANK_4 || rank == RANK_5 || rank == RANK_6)) {
-      isOutpostRank = true;
-    } else if (c == BLACK && (rank == RANK_5 || rank == RANK_4 || rank == RANK_3)) {
-      isOutpostRank = true;
-    }
-
-    if (isOutpostRank) {
-      // Check if defended by our pawn
-      Bitboard defenderMask = BB::pawnAttacks(~c, sq);  // Squares from which our pawns would attack this square
-      bool defendedByPawn = (defenderMask & ourPawns) != 0;
-
-      if (defendedByPawn) {
-        // Check if enemy pawns can attack this square
-        bool canBeAttacked = false;
-
-        // Check adjacent files for enemy pawns that could advance to attack
-        if (c == WHITE) {
-          // For white knight, check if black pawns on adjacent files ahead can attack
-          for (int r = rank; r < 8; ++r) {
-            if (file > 0 && (enemyPawns & BB::squareBB(r * 8 + file - 1))) {
-              canBeAttacked = true;
-              break;
-            }
-            if (file < 7 && (enemyPawns & BB::squareBB(r * 8 + file + 1))) {
-              canBeAttacked = true;
-              break;
-            }
-          }
-        } else {
-          // For black knight, check if white pawns on adjacent files ahead can attack
-          for (int r = rank; r >= 0; --r) {
-            if (file > 0 && (enemyPawns & BB::squareBB(r * 8 + file - 1))) {
-              canBeAttacked = true;
-              break;
-            }
-            if (file < 7 && (enemyPawns & BB::squareBB(r * 8 + file + 1))) {
-              canBeAttacked = true;
-              break;
-            }
-          }
-        }
-
-        if (!canBeAttacked) {
-          // This is a true outpost! Bonus increases for central files
-          int outpostBonus = 25;
-          if (file >= 2 && file <= 5) {
-            outpostBonus += 10;  // Extra bonus for central outpost
-          }
-          score += outpostBonus;
-        }
-      }
-    }
-  }
-
-  return score;
-}
-
-int AI::getMoveScore(const Position& pos, Move move, int ply, Move ttMove) {
-  // Hash move gets highest priority
-  if (move == ttMove) {
-    return 1000000;
-  }
-
-  int score = 0;
-  Square from = fromSquare(move);
-  Square to = toSquare(move);
-  Piece captured = pos.pieceAt(to);
-
-  // Prioritize captures using SEE
-  if (captured != NO_PIECE || moveType(move) == EN_PASSANT) {
-    // Use Static Exchange Evaluation for accurate capture ordering
-    int seeValue = pos.see(move);
-
-    if (seeValue > 0) {
-      // Good capture - search early
-      score += 20000 + seeValue;
-    } else if (seeValue == 0) {
-      // Equal trade - search after good captures but before quiet moves
-      score += 10000;
-    } else {
-      // Bad capture - search after quiet moves
-      score += 5000 + seeValue;  // seeValue is negative, so this lowers score
-    }
-  } else {
-    // Quiet moves (non-captures)
-
-    // Countermove heuristic (moves that refute previous move)
-    if (ply > 0 && pvLength[ply - 1] > 0) {
-      Move prevMove = pvTable[ply - 1][0];
-      Move countermove = countermoves[fromSquare(prevMove)][toSquare(prevMove)];
-      if (move == countermove) {
-        score += 9500;  // Slightly higher than killer moves
-      }
-    }
-
-    // Killer moves
-    if (isKiller(move, ply)) {
-      score += 9000;
-    }
-
-    // History heuristic
-    score += historyTable[from][to];
-  }
-
-  // Prioritize promotions
-  if (moveType(move) == PROMOTION) {
-    score += 15000;
-  }
-
-  return score;
-}
-
-void AI::orderMoves(Position& pos, std::vector<Move>& moves, int ply,
-                    Move ttMove) {
-  std::sort(moves.begin(), moves.end(), [&](Move a, Move b) {
-    return getMoveScore(pos, a, ply, ttMove) >
-           getMoveScore(pos, b, ply, ttMove);
-  });
-}
-
-void AI::updateHistory(Move move, int depth) {
-  Square from = fromSquare(move);
-  Square to = toSquare(move);
-
-  // Bonus increases quadratically with depth
-  int bonus = depth * depth;
-
-  // Gravity-based aging: reduce score proportionally
-  historyTable[from][to] +=
-      bonus - historyTable[from][to] * std::abs(bonus) / 10000;
-
-  // Clamp to prevent overflow
-  if (historyTable[from][to] > 10000) {
-    historyTable[from][to] = 10000;
-  } else if (historyTable[from][to] < -10000) {
-    historyTable[from][to] = -10000;
-  }
-}
-
-void AI::storeKiller(Move move, int ply) {
-  if (ply >= 64) return;
-
-  // Shift killers and add new one
-  if (killerMoves[ply][0] != move) {
-    killerMoves[ply][1] = killerMoves[ply][0];
-    killerMoves[ply][0] = move;
-  }
-}
-
-bool AI::isKiller(Move move, int ply) const {
-  if (ply >= 64) return false;
-  return killerMoves[ply][0] == move || killerMoves[ply][1] == move;
 }
 
 // Syzygy tablebase methods
