@@ -446,8 +446,9 @@ void Position::unmakeNullMove() {
 }
 
 bool Position::inCheck() const {
-  Square kingSq = BB::lsb(pieces(stm, KING));
-  return isAttacked(kingSq, ~stm);
+  Bitboard kings = pieces(stm, KING);
+  if (!kings) return false;  // No king on the board (illegal position)
+  return isAttacked(BB::lsb(kings), ~stm);
 }
 
 bool Position::isAttacked(Square sq, Color attackerColor) const {
