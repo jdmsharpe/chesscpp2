@@ -69,9 +69,40 @@ add_executable(test_polyglot
 target_include_directories(test_polyglot PRIVATE ../inc)
 target_link_libraries(test_polyglot PRIVATE GTest::gtest_main pthread)
 
+# Eval tests
+add_executable(test_eval
+    test_eval.cpp
+    ../src/Eval.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+)
+target_include_directories(test_eval PRIVATE ../inc)
+target_link_libraries(test_eval PRIVATE GTest::gtest_main pthread)
+
+# AI tests
+add_executable(test_ai
+    test_ai.cpp
+    ../src/AI.cpp
+    ../src/Eval.cpp
+    ../src/Bitboard.cpp
+    ../src/Magic.cpp
+    ../src/Zobrist.cpp
+    ../src/Position.cpp
+    ../src/MoveGen.cpp
+    ../src/Polyglot.cpp
+    ../src/Tablebase.cpp
+)
+target_include_directories(test_ai PRIVATE ../inc ../lib/Fathom/src)
+target_link_libraries(test_ai PRIVATE GTest::gtest_main fathom pthread)
+
 # Discover tests
 include(GoogleTest)
 gtest_discover_tests(test_bitboard)
 gtest_discover_tests(test_movegen)
 gtest_discover_tests(test_position)
 gtest_discover_tests(test_polyglot)
+gtest_discover_tests(test_eval)
+gtest_discover_tests(test_ai)
