@@ -1,5 +1,4 @@
-#ifndef TABLEBASE_H
-#define TABLEBASE_H
+#pragma once
 
 #include <string>
 
@@ -64,5 +63,3 @@ class Tablebase {
   static bool initialized;
   static int largestPieces;
 };
-
-#endif  // TABLEBASE_H

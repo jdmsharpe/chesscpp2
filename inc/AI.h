@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <functional>
+#include <optional>
 #include <unordered_map>
 #include <string>
 #include <vector>
@@ -119,13 +120,10 @@ class AI {
   // Quiescence search for tactical positions
   int quiescence(Position& pos, int alpha, int beta, int qsDepth = 0);
 
-  // Position evaluation
-  int evaluate(const Position& pos);
-
   // Move ordering for better pruning
-  void orderMoves(Position& pos, std::vector<Move>& moves, int ply,
-                  Move ttMove = 0);
-  int getMoveScore(const Position& pos, Move move, int ply, Move ttMove);
+  std::vector<ScoredMove> orderMoves(Position& pos, const std::vector<Move>& moves,
+                                     int ply, Move ttMove = 0);
+  ScoredMove scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove);
 
   // Update history heuristic
   void updateHistory(Move move, int depth);
@@ -136,13 +134,33 @@ class AI {
   // Check if move is killer
   bool isKiller(Move move, int ply) const;
 
-  // Evaluation helper functions
-  int evaluatePawnStructure(const Position& pos, Color c) const;
-  int evaluateKingSafety(const Position& pos, Color c) const;
-  int evaluateMobility(const Position& pos, Color c);
-  int evaluateDevelopment(const Position& pos, Color c) const;
-  int evaluateRooks(const Position& pos, Color c) const;
-  int evaluateBishops(const Position& pos, Color c) const;
-  int evaluateKnights(const Position& pos, Color c) const;
-  int getGamePhase(const Position& pos) const;
+  // Search helper: attempt null move pruning
+  // Returns beta if null move causes cutoff, nullopt otherwise.
+  std::optional<int> tryNullMovePruning(Position& pos, int depth, int beta, int ply);
+
+  // Search helper: check static pruning conditions
+  struct PruningResult {
+    bool cutoff;         // true = return score immediately
+    int score;           // only valid if cutoff == true
+    bool futilityPrune;  // true = skip quiet moves in move loop
+  };
+  PruningResult canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode);
+
+  // Search helper: search a single move with PVS + LMR
+  // Handles makeMove/unmakeMove internally.
+  int searchMove(Position& pos, Move move, int depth, int alpha, int beta,
+                 int ply, size_t moveNum, bool isCapture, bool isPromotion);
+
+  // Search helper: probe transposition table
+  // Returns score if TT produces a cutoff, nullopt otherwise.
+  // Sets ttMove if the position is found.
+  // alpha/beta passed by reference — the original code modifies them
+  // for LOWERBOUND/UPPERBOUND entries and those tightened bounds must
+  // persist in the caller.
+  std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove);
+
+  // Search helper: store result in transposition table
+  // Takes both alphaOrig and beta — both needed to determine the TT flag.
+  void storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta);
+
 };

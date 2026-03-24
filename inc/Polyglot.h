@@ -1,5 +1,4 @@
-#ifndef POLYGLOT_H
-#define POLYGLOT_H
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -61,5 +60,3 @@ class PolyglotBook {
   static const uint64_t RandomEnPassant[8];
   static const uint64_t RandomTurn;
 };
-
-#endif  // POLYGLOT_H

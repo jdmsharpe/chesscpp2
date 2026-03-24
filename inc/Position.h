@@ -68,7 +68,6 @@ class Position {
 
   // Static Exchange Evaluation
   int see(Move move) const;
-  int seeCapture(Square to, Color side, Piece captured, Piece attacker) const;
 
   // Position evaluation helpers
   int materialCount(Color c) const;
