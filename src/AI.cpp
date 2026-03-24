@@ -329,43 +329,8 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply) {
     return quiescence(pos, alpha, beta, 0);
   }
 
-  // Null Move Pruning
-  // Try "passing" - if position is still good, we can prune
-  const int NULL_MOVE_REDUCTION = 3;
-  bool canDoNullMove = depth >= 3 && !pos.inCheck() && ply > 0;
-
-  // Avoid null move in zugzwang-prone positions
-  if (canDoNullMove) {
-    Color us = pos.sideToMove();
-    int material = pos.materialCount(us);
-
-    // Count non-pawn pieces
-    int knights = BB::popCount(pos.pieces(us, KNIGHT));
-    int bishops = BB::popCount(pos.pieces(us, BISHOP));
-    int rooks = BB::popCount(pos.pieces(us, ROOK));
-    int queens = BB::popCount(pos.pieces(us, QUEEN));
-    int nonPawnPieces = knights + bishops + rooks + queens;
-
-    // Skip null move if:
-    // 1. Only king + pawns (zugzwang prone)
-    // 2. Pawn endgames (zugzwang common)
-    // 3. Very little material (K+minor vs K endgames)
-    if (material <= 100 ||                         // Only pawns
-        nonPawnPieces == 0 ||                      // No pieces, only pawns
-        (nonPawnPieces == 1 && material < 500)) {  // Only one minor/rook
-      canDoNullMove = false;
-    }
-  }
-
-  if (canDoNullMove) {
-    pos.makeNullMove();
-    int nullDepth = std::max(0, depth - 1 - NULL_MOVE_REDUCTION);
-    int score = -negamax(pos, nullDepth, -beta, -beta + 1, ply + 1);
-    pos.unmakeNullMove();
-
-    if (score >= beta) {
-      return beta;  // Null move caused cutoff
-    }
+  if (auto score = tryNullMovePruning(pos, depth, beta, ply)) {
+    return *score;
   }
 
   // Determine if this is a PV node (wide window = principal variation)
@@ -746,6 +711,47 @@ void AI::storeKiller(Move move, int ply) {
 bool AI::isKiller(Move move, int ply) const {
   if (ply >= 64) return false;
   return killerMoves[ply][0] == move || killerMoves[ply][1] == move;
+}
+
+std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int beta, int ply) {
+  const int NULL_MOVE_REDUCTION = 3;
+  bool canDoNullMove = depth >= 3 && !pos.inCheck() && ply > 0;
+
+  // Avoid null move in zugzwang-prone positions
+  if (canDoNullMove) {
+    Color us = pos.sideToMove();
+    int material = pos.materialCount(us);
+
+    // Count non-pawn pieces
+    int knights = BB::popCount(pos.pieces(us, KNIGHT));
+    int bishops = BB::popCount(pos.pieces(us, BISHOP));
+    int rooks = BB::popCount(pos.pieces(us, ROOK));
+    int queens = BB::popCount(pos.pieces(us, QUEEN));
+    int nonPawnPieces = knights + bishops + rooks + queens;
+
+    // Skip null move if:
+    // 1. Only king + pawns (zugzwang prone)
+    // 2. Pawn endgames (zugzwang common)
+    // 3. Very little material (K+minor vs K endgames)
+    if (material <= 100 ||                         // Only pawns
+        nonPawnPieces == 0 ||                      // No pieces, only pawns
+        (nonPawnPieces == 1 && material < 500)) {  // Only one minor/rook
+      canDoNullMove = false;
+    }
+  }
+
+  if (canDoNullMove) {
+    pos.makeNullMove();
+    int nullDepth = std::max(0, depth - 1 - NULL_MOVE_REDUCTION);
+    int score = -negamax(pos, nullDepth, -beta, -beta + 1, ply + 1);
+    pos.unmakeNullMove();
+
+    if (score >= beta) {
+      return beta;  // Null move caused cutoff
+    }
+  }
+
+  return std::nullopt;
 }
 
 std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove) {

@@ -134,6 +134,10 @@ class AI {
   // Check if move is killer
   bool isKiller(Move move, int ply) const;
 
+  // Search helper: attempt null move pruning
+  // Returns beta if null move causes cutoff, nullopt otherwise.
+  std::optional<int> tryNullMovePruning(Position& pos, int depth, int beta, int ply);
+
   // Search helper: probe transposition table
   // Returns score if TT produces a cutoff, nullopt otherwise.
   // Sets ttMove if the position is found.
