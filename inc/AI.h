@@ -2,6 +2,7 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <functional>
 #include <optional>
 #include <unordered_map>
@@ -38,14 +39,14 @@ class AI {
 
   // Resize transposition table (in MB)
   void resizeTT(size_t mb) {
-    ttSize = (mb * 1024 * 1024) / sizeof(TTEntry);
-    transpositionTable.assign(ttSize, TTEntry{});
+    ttBucketCount = (mb * 1024 * 1024) / sizeof(TTBucket);
+    transpositionTable.assign(ttBucketCount, TTBucket{});
     ttAge = 0;
   }
 
   // Clear transposition table
   void clearTT() {
-    std::fill(transpositionTable.begin(), transpositionTable.end(), TTEntry{});
+    std::fill(transpositionTable.begin(), transpositionTable.end(), TTBucket{});
     ttAge = 0;
   }
 
@@ -82,22 +83,51 @@ class AI {
   // Callback for GUI updates
   MoveCallback moveCallback;
 
-  // Transposition table entry
-  enum TTFlag { EXACT, LOWERBOUND, UPPERBOUND };
+  // --- Transposition Table (multi-bucket, packed entries) ---
+  static constexpr int MATE_SCORE = 10000;
+  static constexpr int MATE_BOUND = 9500;
+
+  enum TTFlag : uint8_t { EXACT = 0, LOWERBOUND = 1, UPPERBOUND = 2 };
+
   struct TTEntry {
-    HashKey key;
-    int depth;
-    int score;
-    TTFlag flag;
-    Move bestMove;
-    uint8_t age;  // For aging entries
+    uint32_t key32 = 0;    // Upper 32 bits of hash
+    int16_t score = 0;     // Centipawn score
+    Move bestMove = 0;     // Best move (uint16_t)
+    int8_t depth = 0;      // Search depth
+    uint8_t flagAge = 0;   // Bits 0-1: flag, bits 2-7: age (0-63)
+
+    TTFlag getFlag() const { return TTFlag(flagAge & 3); }
+    uint8_t getAge() const { return flagAge >> 2; }
+    void setFlagAge(TTFlag f, uint8_t age) {
+      flagAge = static_cast<uint8_t>((age << 2) | (f & 3));
+    }
+    bool isEmpty() const { return key32 == 0 && bestMove == 0; }
   };
 
-  // Transposition table (128MB default, resizable via UCI Hash option)
+  static constexpr int TT_BUCKET_SIZE = 4;
+  struct TTBucket {
+    TTEntry entries[TT_BUCKET_SIZE];
+  };
+
+  // Default 128MB
   static constexpr size_t DEFAULT_TT_SIZE_MB = 128;
-  size_t ttSize;
-  std::vector<TTEntry> transpositionTable;
-  uint8_t ttAge;  // Current search age
+  size_t ttBucketCount;
+  std::vector<TTBucket> transpositionTable;
+  uint8_t ttAge;  // Current search age (0-63, wraps)
+
+  // Info returned from TT probe (for singular extension)
+  struct TTProbeInfo {
+    Move ttMove = 0;
+    int16_t ttScore = 0;
+    int8_t ttDepth = -1;
+    TTFlag ttFlag = EXACT;
+    bool found = false;
+  };
+
+  // --- LMR (Late Move Reduction) table ---
+  static int lmrTable[64][64];  // [depth][moveNum]
+  static bool lmrInitialized;
+  static void initLMR();
 
   // Killer moves (non-capture moves that caused cutoffs)
   static const int MAX_KILLERS = 2;
@@ -121,18 +151,22 @@ class AI {
   PolyglotBook polyglotBook;
 
   // Minimax with alpha-beta pruning
-  int negamax(Position& pos, int depth, int alpha, int beta, int ply);
+  // excludedMove: for singular extension searches (skip this move)
+  int negamax(Position& pos, int depth, int alpha, int beta, int ply,
+              Move excludedMove = 0);
 
   // Quiescence search for tactical positions
   int quiescence(Position& pos, int alpha, int beta, int qsDepth = 0);
 
-  // Move ordering for better pruning
-  std::vector<ScoredMove> orderMoves(Position& pos, const std::vector<Move>& moves,
-                                     int ply, Move ttMove = 0);
-  ScoredMove scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove);
+  // Move ordering for root moves (uses full scoring)
+  std::vector<ScoredMove> orderMoves(Position& pos,
+                                     const std::vector<Move>& moves, int ply,
+                                     Move ttMove = 0);
+  ScoredMove scoreMoveWithSEE(const Position& pos, Move move, int ply,
+                              Move ttMove);
 
-  // Update history heuristic
-  void updateHistory(Move move, int depth);
+  // History heuristic: bonus for cutoff moves, malus for failed quiet moves
+  void updateHistory(Move move, int bonus);
 
   // Store killer move
   void storeKiller(Move move, int ply);
@@ -140,9 +174,9 @@ class AI {
   // Check if move is killer
   bool isKiller(Move move, int ply) const;
 
-  // Search helper: attempt null move pruning
-  // Returns beta if null move causes cutoff, nullopt otherwise.
-  std::optional<int> tryNullMovePruning(Position& pos, int depth, int beta, int ply);
+  // Search helper: attempt null move pruning (adaptive R)
+  std::optional<int> tryNullMovePruning(Position& pos, int depth, int alpha,
+                                        int beta, int ply);
 
   // Search helper: check static pruning conditions
   struct PruningResult {
@@ -150,23 +184,14 @@ class AI {
     int score;           // only valid if cutoff == true
     bool futilityPrune;  // true = skip quiet moves in move loop
   };
-  PruningResult canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode);
+  PruningResult canPrune(Position& pos, int depth, int alpha, int beta,
+                         bool isPVNode);
 
-  // Search helper: search a single move with PVS + LMR
-  // Handles makeMove/unmakeMove internally.
-  int searchMove(Position& pos, Move move, int depth, int alpha, int beta,
-                 int ply, size_t moveNum, bool isCapture, bool isPromotion);
+  // TT probe: returns cutoff score or nullopt. Populates info struct.
+  std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta,
+                             int ply, TTProbeInfo& info);
 
-  // Search helper: probe transposition table
-  // Returns score if TT produces a cutoff, nullopt otherwise.
-  // Sets ttMove if the position is found.
-  // alpha/beta passed by reference — the original code modifies them
-  // for LOWERBOUND/UPPERBOUND entries and those tightened bounds must
-  // persist in the caller.
-  std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta, Move& ttMove);
-
-  // Search helper: store result in transposition table
-  // Takes both alphaOrig and beta — both needed to determine the TT flag.
-  void storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta);
-
+  // TT store with mate score adjustment
+  void storeTT(HashKey hash, int depth, int score, Move bestMove,
+               int alphaOrig, int beta, int ply);
 };

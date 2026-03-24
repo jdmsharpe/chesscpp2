@@ -9,8 +9,8 @@ An improved chess engine implementation using bitboards for fast move generation
 - **Bitboard representation** - 64-bit integers for efficient board representation
 - **Magic bitboards** - Ultra-fast sliding piece (rook, bishop, queen) move generation
 - **Fast move generation** - Optimized legal move generation using bit operations
-- **AI with alpha-beta pruning** - Minimax search with move ordering, transposition tables, killer/history heuristics, null move pruning, LMR, aspiration windows, and quiescence search
-- **Piece-square tables** - Positional evaluation for better play
+- **AI with alpha-beta pruning** - Minimax search with staged move generation (MovePicker), multi-bucket transposition table, logarithmic LMR, singular extensions, killer/history/countermove heuristics, adaptive null move pruning, aspiration windows, and quiescence search
+- **Piece-square tables** - Positional evaluation with tapered eval, pawn hash table, and king safety attack units
 - **UCI protocol** - Integration with chess GUIs and tournament software
 - **FEN support** - Load and save positions in Forsyth-Edwards Notation
 - **Syzygy tablebases** - Perfect endgame play with 3-4-5 piece tablebases
@@ -163,15 +163,16 @@ info string Polyglot book move: e2e4
 3. **Magic.h/cpp** - Magic bitboard implementation for sliding pieces
 4. **Position.h/cpp** - Board position with bitboard representation
 5. **MoveGen.h/cpp** - Fast legal move generation
-6. **AI.h/cpp** - Alpha-beta search with decomposed helpers (probeTT, storeTT, tryNullMovePruning, canPrune, searchMove)
-6b. **Eval.h/cpp** - Position evaluation: PST, tapered eval, pawn structure, king safety, mobility
-7. **Game.h/cpp** - Game controller and rules
-8. **Window.h/cpp** - SDL2 GUI implementation
-9. **UCI.h/cpp** - Universal Chess Interface protocol
-10. **Polyglot.h/cpp** - Polyglot opening book support
-11. **Tablebase.h/cpp** - Syzygy tablebase probing via Fathom
-12. **Zobrist.h/cpp** - Zobrist hashing for positions
-13. **Logger.h** - Thread-safe logging utility
+6. **MovePicker.h/cpp** - Staged move generation (TT → captures → killers → quiets)
+7. **AI.h/cpp** - Alpha-beta search with multi-bucket TT, logarithmic LMR, singular extensions, adaptive null move pruning, history malus, PVS
+8. **Eval.h/cpp** - Position evaluation: PST, tapered eval, pawn hash table, king safety with attack units, mobility
+9. **Game.h/cpp** - Game controller and rules
+10. **Window.h/cpp** - SDL2 GUI implementation
+11. **UCI.h/cpp** - Universal Chess Interface protocol
+12. **Polyglot.h/cpp** - Polyglot opening book support
+13. **Tablebase.h/cpp** - Syzygy tablebase probing via Fathom
+14. **Zobrist.h/cpp** - Zobrist hashing for positions
+15. **Logger.h** - Thread-safe logging utility
 
 ### Bitboard Advantages
 
@@ -218,7 +219,7 @@ From the starting position with **magic bitboards enabled**:
 
 ## Testing
 
-Run the full test suite (146 tests):
+Run the full test suite (162 tests):
 
 ```bash
 cd build
@@ -273,14 +274,25 @@ Potential improvements:
 - [x] Insufficient material detection (implemented)
 - [x] Time controls (implemented - wtime/btime/winc/binc)
 - [x] Evaluation extracted to Eval.h/cpp with clean namespace interface
-- [x] Search decomposed into 5 named helpers (probeTT, storeTT, tryNullMovePruning, canPrune, searchMove)
+- [x] Search decomposed into named helpers (probeTT, storeTT, tryNullMovePruning, canPrune)
 - [x] SEE caching via ScoredMove struct (eliminates redundant SEE in quiescence)
 - [x] Efficient checking move generation for quiescence search
 - [x] Comprehensive test suite (162 tests: eval, search, UCI, game logic, move generation)
-- [x] Syzygy tablebase probing during search (implemented — WDL probe at depth >= 2)
+- [x] Syzygy tablebase probing during search (WDL probe at depth >= 2)
+- [x] Staged move generation via MovePicker (TT → captures → killers → quiets → bad captures)
+- [x] Lazy legality checking (skip make/unmake for pruned/cutoff moves)
+- [x] Logarithmic LMR table (`log(depth) * log(moveNum)` — reductions up to 5+ at deep nodes)
+- [x] Multi-bucket transposition table (4 entries/bucket, packed 10-byte entries, ~2.5x more entries)
+- [x] Mate score ply adjustment in TT (correct mate distance at any retrieval ply)
+- [x] Singular extensions (extend TT move by 1 ply when significantly better than alternatives)
+- [x] History malus (penalize quiet moves that fail to cause cutoffs)
+- [x] King safety attack unit counting (quadratic penalty for coordinated piece attacks)
+- [x] Pawn hash table (16K entries, ~95% hit rate, caches pawn structure evaluation)
+- [x] Adaptive null move pruning (R = 3 + depth/6, eval-boosted)
+- [x] Futility pruning fix (no longer incorrectly applied at PV nodes)
 - [ ] Lazy SMP multithreading (designed, not yet implemented — see `docs/plans/`)
+- [ ] NNUE evaluation (neural network-based eval for major strength gain)
 - [ ] Endgame-specific knowledge (K+R vs K technique, opposition, pawn endgame rules)
-- [ ] Endgame search extensions (deeper search when few pieces remain)
 
 ## License
 

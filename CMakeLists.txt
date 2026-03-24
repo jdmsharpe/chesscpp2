@@ -37,6 +37,7 @@ set(SOURCES
     src/Game.cpp
     src/Magic.cpp
     src/MoveGen.cpp
+    src/MovePicker.cpp
     src/Polyglot.cpp
     src/Position.cpp
     src/Tablebase.cpp
@@ -54,6 +55,7 @@ set(HEADERS
     inc/Game.h
     inc/Magic.h
     inc/MoveGen.h
+    inc/MovePicker.h
     inc/Polyglot.h
     inc/Position.h
     inc/Tablebase.h

@@ -31,6 +31,7 @@ add_library(chess_engine STATIC
     ../src/AI.cpp
     ../src/Eval.cpp
     ../src/Game.cpp
+    ../src/MovePicker.cpp
     ../src/UCI.cpp
     ../src/Polyglot.cpp
     ../src/Tablebase.cpp

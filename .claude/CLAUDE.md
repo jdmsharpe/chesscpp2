@@ -55,8 +55,9 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Move generation | `MoveGen.h/cpp` | Pseudo-legal → legality filter |
 | Magic bitboards | `Magic.h/cpp` | Pre-computed sliding attack tables |
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
-| Search | `AI.h/cpp` | Alpha-beta with helpers: probeTT, storeTT, tryNullMovePruning, canPrune, searchMove; repetition detection with contempt, retreat penalty in move ordering, proper checkmate detection in qsearch |
-| Evaluation | `Eval.h/cpp` | PST (incl. endgame king PST), tapered eval, pawn structure (passed pawn advancement, clear path), king safety, mobility, development, rook-behind-passer, king-passer proximity, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
+| Staged move gen | `MovePicker.h/cpp` | Yields pseudo-legal moves in priority order: TT → good captures → killers → countermove → quiets → bad captures; lazy legality |
+| Search | `AI.h/cpp` | Alpha-beta with: MovePicker (staged gen + lazy legality), multi-bucket TT (4-entry, packed 10-byte entries, mate score ply adjustment), logarithmic LMR table, singular extensions, PVS, IID, adaptive null move pruning (R = 3 + depth/6), history malus, aspiration windows, contempt, retreat penalty; futility/RFP/razoring only at non-PV nodes |
+| Evaluation | `Eval.h/cpp` | PST (incl. endgame king PST), tapered eval, pawn structure with pawn hash table (16K entries), king safety with attack unit counting (quadratic penalty), mobility, development, rook-behind-passer, king-passer proximity, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
 | Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`), WDL probed during search (depth ≥ 2) + DTZ at root |
