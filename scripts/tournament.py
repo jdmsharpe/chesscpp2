@@ -3,17 +3,16 @@
 UCI Chess Tournament Framework
 """
 
-import subprocess
-import shlex
-import time
-import sys
 import os
+import shlex
+import subprocess
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Dict, Optional
 
 try:
     import chess
+
     HAS_PYTHON_CHESS = True
 except ImportError:
     HAS_PYTHON_CHESS = False
@@ -32,14 +31,14 @@ class GameResult:
     result: str  # "1-0", "0-1", "1/2-1/2"
     moves: int
     reason: str
-    move_list: List[str] = field(default_factory=list)
+    move_list: list[str] = field(default_factory=list)
 
     def to_pgn(self, round_num: int = 1) -> str:
         """Export game as PGN string"""
         lines = []
         date = datetime.now().strftime("%Y.%m.%d")
-        lines.append(f'[Event "Engine Tournament"]')
-        lines.append(f'[Site "Local"]')
+        lines.append('[Event "Engine Tournament"]')
+        lines.append('[Site "Local"]')
         lines.append(f'[Date "{date}"]')
         lines.append(f'[Round "{round_num}"]')
         lines.append(f'[White "{self.white}"]')
@@ -89,21 +88,26 @@ class GameResult:
 class Engine:
     """Represents a UCI chess engine"""
 
-    def __init__(self, name: str, path: str, options: Optional[Dict[str, str]] = None, use_syzygy: bool = True, use_book: bool = True):
+    def __init__(
+        self,
+        name: str,
+        path: str,
+        options: dict[str, str] | None = None,
+        use_syzygy: bool = True,
+        use_book: bool = True,
+    ):
         self.name = name
         self.path = path
         self.options = options or {}
         self.process = None
 
         # Auto-enable Syzygy tablebases if available and not already set
-        if use_syzygy and "SyzygyPath" not in self.options:
-            if os.path.isdir(DEFAULT_SYZYGY_PATH):
-                self.options["SyzygyPath"] = DEFAULT_SYZYGY_PATH
+        if use_syzygy and "SyzygyPath" not in self.options and os.path.isdir(DEFAULT_SYZYGY_PATH):
+            self.options["SyzygyPath"] = DEFAULT_SYZYGY_PATH
 
         # Auto-enable Polyglot opening book if available and not already set
-        if use_book and "BookPath" not in self.options:
-            if os.path.isfile(DEFAULT_BOOK_PATH):
-                self.options["BookPath"] = DEFAULT_BOOK_PATH
+        if use_book and "BookPath" not in self.options and os.path.isfile(DEFAULT_BOOK_PATH):
+            self.options["BookPath"] = DEFAULT_BOOK_PATH
 
     def start(self):
         """Start the engine process"""
@@ -113,7 +117,7 @@ class Engine:
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
-            bufsize=1
+            bufsize=1,
         )
         assert self.process.stdin is not None and self.process.stdout is not None
 
@@ -141,7 +145,9 @@ class Engine:
         self._send("isready")
         self._wait_for("readyok")
 
-    def get_move(self, position_fen: str, moves: List[str], depth: int = 6, movetime: Optional[int] = None) -> Optional[str]:
+    def get_move(
+        self, position_fen: str, moves: list[str], depth: int = 6, movetime: int | None = None
+    ) -> str | None:
         """Get best move for current position"""
         # Send position — prefer FEN to avoid replaying entire move history
         if position_fen == "startpos" and not moves:
@@ -172,11 +178,13 @@ class Engine:
         """Send command to engine"""
         assert self.process is not None and self.process.stdin is not None
         if self.process.poll() is not None:
-            raise RuntimeError(f"Engine '{self.name}' exited with code {self.process.returncode} before receiving '{command}'")
+            raise RuntimeError(
+                f"Engine '{self.name}' exited with code {self.process.returncode} before receiving '{command}'"
+            )
         self.process.stdin.write(command + "\n")
         self.process.stdin.flush()
 
-    def _wait_for(self, expected: str, timeout: float = 30.0) -> Optional[str]:
+    def _wait_for(self, expected: str, timeout: float = 30.0) -> str | None:
         """Wait for expected response from engine"""
         assert self.process is not None and self.process.stdout is not None
         start_time = time.time()
@@ -190,15 +198,23 @@ class Engine:
 class Tournament:
     """Manages tournament between multiple engines"""
 
-    def __init__(self, engines: List[Engine]):
+    def __init__(self, engines: list[Engine]):
         self.engines = engines
-        self.results: List[GameResult] = []
-        self.scores: Dict[str, float] = {e.name: 0.0 for e in engines}
+        self.results: list[GameResult] = []
+        self.scores: dict[str, float] = {e.name: 0.0 for e in engines}
 
-    def run_round_robin(self, games_per_pairing: int = 1, depth: int = 6, movetime: Optional[int] = None, pgn_file: Optional[str] = None):
+    def run_round_robin(
+        self,
+        games_per_pairing: int = 1,
+        depth: int = 6,
+        movetime: int | None = None,
+        pgn_file: str | None = None,
+    ):
         """Run round-robin tournament. If pgn_file is set, saves all games to that file."""
         if not HAS_PYTHON_CHESS:
-            print("WARNING: python-chess not installed — draw adjudication disabled (pip install python-chess)")
+            print(
+                "WARNING: python-chess not installed — draw adjudication disabled (pip install python-chess)"
+            )
 
         # Start all engines once for the entire tournament
         for engine in self.engines:
@@ -221,7 +237,9 @@ class Tournament:
                         else:
                             white, black = engine2, engine1
 
-                        print(f"\n[Game {game_num}/{total_games}] {white.name} (White) vs {black.name} (Black)")
+                        print(
+                            f"\n[Game {game_num}/{total_games}] {white.name} (White) vs {black.name} (Black)"
+                        )
                         result = self._play_game(white, black, depth, movetime)
                         self.results.append(result)
                         self._update_scores(result)
@@ -235,7 +253,9 @@ class Tournament:
         pgn_path = pgn_file or self._default_pgn_path()
         self.save_pgn(pgn_path)
 
-    def _play_game(self, white: Engine, black: Engine, depth: int, movetime: Optional[int]) -> GameResult:
+    def _play_game(
+        self, white: Engine, black: Engine, depth: int, movetime: int | None
+    ) -> GameResult:
         """Play a single game between two engines (engines must already be started)"""
         white.new_game()
         black.new_game()
@@ -258,18 +278,36 @@ class Tournament:
                             winner = black.name if move_num % 2 == 0 else white.name
                             result_str = "0-1" if move_num % 2 == 0 else "1-0"
                             print(f"  Result: {winner} wins by checkmate")
-                            return GameResult(white.name, black.name, result_str, len(moves), "checkmate", list(moves))
+                            return GameResult(
+                                white.name,
+                                black.name,
+                                result_str,
+                                len(moves),
+                                "checkmate",
+                                list(moves),
+                            )
                         elif board.is_stalemate():
-                            print(f"  Result: Draw (stalemate)")
-                            return GameResult(white.name, black.name, "1/2-1/2", len(moves), "stalemate", list(moves))
+                            print("  Result: Draw (stalemate)")
+                            return GameResult(
+                                white.name,
+                                black.name,
+                                "1/2-1/2",
+                                len(moves),
+                                "stalemate",
+                                list(moves),
+                            )
 
                     # Fallback without python-chess: assume checkmate
                     if move_num % 2 == 0:
                         print(f"  Result: {black.name} wins by checkmate")
-                        return GameResult(white.name, black.name, "0-1", len(moves), "checkmate", list(moves))
+                        return GameResult(
+                            white.name, black.name, "0-1", len(moves), "checkmate", list(moves)
+                        )
                     else:
                         print(f"  Result: {white.name} wins by checkmate")
-                        return GameResult(white.name, black.name, "1-0", len(moves), "checkmate", list(moves))
+                        return GameResult(
+                            white.name, black.name, "1-0", len(moves), "checkmate", list(moves)
+                        )
 
                 moves.append(move)
 
@@ -278,37 +316,75 @@ class Tournament:
                     try:
                         board.push_uci(move)
                     except ValueError:
-                        print(f"  Warning: illegal move '{move}' from {current_engine.name}, ply {len(moves)}")
-                        loser = white.name if move_num % 2 == 0 else black.name
+                        print(
+                            f"  Warning: illegal move '{move}' from {current_engine.name}, ply {len(moves)}"
+                        )
                         winner = black.name if move_num % 2 == 0 else white.name
                         result_str = "0-1" if move_num % 2 == 0 else "1-0"
                         print(f"  Result: {winner} wins by forfeit (illegal move)")
-                        return GameResult(white.name, black.name, result_str, len(moves), f"illegal move: {move}", list(moves))
+                        return GameResult(
+                            white.name,
+                            black.name,
+                            result_str,
+                            len(moves),
+                            f"illegal move: {move}",
+                            list(moves),
+                        )
 
                     # --- Draw adjudication ---
                     if board.is_fivefold_repetition():
                         print(f"  Result: Draw (fivefold repetition) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "fivefold repetition", list(moves))
+                        return GameResult(
+                            white.name,
+                            black.name,
+                            "1/2-1/2",
+                            len(moves),
+                            "fivefold repetition",
+                            list(moves),
+                        )
 
                     if board.is_repetition(3):
                         print(f"  Result: Draw (threefold repetition) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "threefold repetition", list(moves))
+                        return GameResult(
+                            white.name,
+                            black.name,
+                            "1/2-1/2",
+                            len(moves),
+                            "threefold repetition",
+                            list(moves),
+                        )
 
                     if board.is_fifty_moves():
                         print(f"  Result: Draw (50-move rule) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "50-move rule", list(moves))
+                        return GameResult(
+                            white.name,
+                            black.name,
+                            "1/2-1/2",
+                            len(moves),
+                            "50-move rule",
+                            list(moves),
+                        )
 
                     if board.is_insufficient_material():
                         print(f"  Result: Draw (insufficient material) at ply {len(moves)}")
-                        return GameResult(white.name, black.name, "1/2-1/2", len(moves), "insufficient material", list(moves))
+                        return GameResult(
+                            white.name,
+                            black.name,
+                            "1/2-1/2",
+                            len(moves),
+                            "insufficient material",
+                            list(moves),
+                        )
 
                 # Print progress every 10 moves
                 if len(moves) % 10 == 0:
                     print(f"  Move {len(moves)}: {move}")
 
             # Safety net — should rarely reach here with draw adjudication active
-            result = GameResult(white.name, black.name, "1/2-1/2", len(moves), "max moves", list(moves))
-            print(f"  Result: Draw (max moves)")
+            result = GameResult(
+                white.name, black.name, "1/2-1/2", len(moves), "max moves", list(moves)
+            )
+            print("  Result: Draw (max moves)")
             return result
 
         finally:
@@ -333,8 +409,17 @@ class Tournament:
 
         for name, score in sorted_scores:
             games_played = sum(1 for r in self.results if r.white == name or r.black == name)
-            wins = sum(1 for r in self.results if (r.white == name and r.result == "1-0") or (r.black == name and r.result == "0-1"))
-            draws = sum(1 for r in self.results if (r.white == name or r.black == name) and r.result == "1/2-1/2")
+            wins = sum(
+                1
+                for r in self.results
+                if (r.white == name and r.result == "1-0")
+                or (r.black == name and r.result == "0-1")
+            )
+            draws = sum(
+                1
+                for r in self.results
+                if (r.white == name or r.black == name) and r.result == "1/2-1/2"
+            )
             losses = games_played - wins - draws
 
             print(f"{name:40s} {score:5.1f} (+{wins} ={draws} -{losses})")
@@ -348,7 +433,6 @@ class Tournament:
             reason_parts = [f"{reason}: {count}" for reason, count in sorted(reasons.items())]
             print(f"  Draws: {', '.join(reason_parts)}")
         print("=" * 60)
-
 
     def _default_pgn_path(self) -> str:
         """Generate a default PGN filename based on engine names and timestamp"""

@@ -3,18 +3,19 @@
 Diagnostic tool to see what Chess++ is thinking
 """
 
-import subprocess
-import time
 import os
+import subprocess
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 ENGINE_PATH = os.path.join(PROJECT_ROOT, "build", "chesscpp2") + " --uci"
 
+
 def send_uci_command(proc, command):
     """Send command and return response lines"""
     proc.stdin.write(command + "\n")
     proc.stdin.flush()
+
 
 def get_uci_response(proc, wait_for):
     """Read until we see the expected line"""
@@ -25,6 +26,7 @@ def get_uci_response(proc, wait_for):
         if line.startswith(wait_for):
             break
     return lines
+
 
 def test_position(fen, moves_str="", depth=5):
     """Test what the engine thinks about a position"""
@@ -42,7 +44,7 @@ def test_position(fen, moves_str="", depth=5):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
 
     # Initialize
@@ -71,6 +73,7 @@ def test_position(fen, moves_str="", depth=5):
     send_uci_command(proc, "quit")
     proc.wait(timeout=2)
     print()
+
 
 # Test 1: Starting position
 print("\n*** TEST 1: Starting position ***")

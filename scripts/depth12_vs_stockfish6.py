@@ -4,7 +4,8 @@ Chess++ (Depth 12) vs Stockfish (Skill Level 6)
 """
 
 import sys
-from tournament import Engine, Tournament, PROJECT_ROOT
+
+from tournament import PROJECT_ROOT, Engine, Tournament
 
 print("=" * 60)
 print("Chess++ Depth-12 vs Stockfish Skill Level 6")

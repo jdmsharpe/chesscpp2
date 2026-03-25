@@ -4,7 +4,8 @@ Chess++ vs Chess++ - should be roughly 50-50
 """
 
 import sys
-from tournament import Engine, Tournament, PROJECT_ROOT
+
+from tournament import PROJECT_ROOT, Engine, Tournament
 
 print("=" * 60)
 print("Chess++ Self-Play Test")

@@ -3,12 +3,13 @@
 Test if the engine prefers obviously good moves
 """
 
-import subprocess
 import os
+import subprocess
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 ENGINE_PATH = os.path.join(PROJECT_ROOT, "build", "chesscpp2") + " --uci"
+
 
 def test_move(fen, depth, description):
     """Test what move the engine chooses"""
@@ -19,7 +20,7 @@ def test_move(fen, depth, description):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
 
     proc.stdin.write("uci\n")
@@ -60,37 +61,36 @@ def test_move(fen, depth, description):
 
     return bestmove
 
-print("="*70)
+
+print("=" * 70)
 print("TESTING MOVE PREFERENCES")
-print("="*70)
+print("=" * 70)
 print()
 
 # Test 1: Can we capture a free queen?
 test_move(
     "rnb1kbnr/pppppppp/8/8/8/3q4/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     5,
-    "Test 1: Free queen on d3 - should capture it"
+    "Test 1: Free queen on d3 - should capture it",
 )
 
 # Test 2: Should we save our own queen from being captured?
 test_move(
     "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPPQPPP/RNB1KBNR w KQkq - 0 1",
     5,
-    "Test 2: Our queen on e2 can be taken by e5 - should move it"
+    "Test 2: Our queen on e2 can be taken by e5 - should move it",
 )
 
 # Test 3: Do we see a back rank mate in 1?
 test_move(
-    "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1",
-    5,
-    "Test 3: Back rank mate with Re8# - should find it"
+    "6k1/5ppp/8/8/8/8/5PPP/4R1K1 w - - 0 1", 5, "Test 3: Back rank mate with Re8# - should find it"
 )
 
 # Test 4: Do we avoid moving into check?
 test_move(
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1",
     3,
-    "Test 4: King on e1, should NOT move to d1 (would be in check from queen)"
+    "Test 4: King on e1, should NOT move to d1 (would be in check from queen)",
 )
 
-print("="*70)
+print("=" * 70)

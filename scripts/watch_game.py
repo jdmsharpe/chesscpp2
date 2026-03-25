@@ -3,14 +3,14 @@
 Watch a single game move-by-move and output in PGN format
 """
 
-import subprocess
-import time
 import os
+import subprocess
 from datetime import datetime
 
 try:
     import chess
     import chess.pgn
+
     HAS_CHESS = True
 except ImportError:
     HAS_CHESS = False
@@ -22,6 +22,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DEFAULT_BOOK_PATH = os.path.join(PROJECT_ROOT, "books", "Titans.bin")
 
+
 def create_engine(path, options=None):
     """Create and initialize a UCI engine"""
     proc = subprocess.Popen(
@@ -31,7 +32,7 @@ def create_engine(path, options=None):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
     assert proc.stdin is not None and proc.stdout is not None
 
@@ -58,13 +59,11 @@ def create_engine(path, options=None):
 
     return proc
 
+
 def get_move(proc, position, moves, depth):
     """Get best move from engine"""
     # Send position
-    if moves:
-        moves_str = " moves " + " ".join(moves)
-    else:
-        moves_str = ""
+    moves_str = " moves " + " ".join(moves) if moves else ""
 
     proc.stdin.write(f"position {position}{moves_str}\n")
     proc.stdin.flush()
@@ -79,6 +78,7 @@ def get_move(proc, position, moves, depth):
         if line.startswith("bestmove"):
             return line.split()[1]
 
+
 def uci_to_san(board, uci_move):
     """Convert UCI move to SAN if python-chess is available"""
     if HAS_CHESS:
@@ -87,10 +87,11 @@ def uci_to_san(board, uci_move):
             san = board.san(move)
             board.push(move)
             return san
-        except:
+        except Exception:
             return uci_move
     else:
         return uci_move
+
 
 def play_game():
     """Play one game and output in PGN format"""
@@ -110,7 +111,9 @@ def play_game():
     if os.path.isfile(DEFAULT_BOOK_PATH):
         chesscpp_options["BookPath"] = DEFAULT_BOOK_PATH
     chesscpp = create_engine(f"{PROJECT_ROOT}/build/chesscpp2 --uci", chesscpp_options)
-    stockfish = create_engine(f"{PROJECT_ROOT}/stockfish/stockfish-ubuntu-x86-64-avx2", {"Skill Level": "1"})
+    stockfish = create_engine(
+        f"{PROJECT_ROOT}/stockfish/stockfish-ubuntu-x86-64-avx2", {"Skill Level": "1"}
+    )
     assert chesscpp.stdin is not None and stockfish.stdin is not None
 
     # Start game
@@ -159,13 +162,13 @@ def play_game():
                 board.push(move)
 
                 if i % 2 == 0:
-                    output.append(f"{i//2 + 1}. {san}")
+                    output.append(f"{i // 2 + 1}. {san}")
                 else:
                     output[-1] += f" {san}"
-            except:
+            except Exception:
                 # Fallback to UCI notation
                 if i % 2 == 0:
-                    output.append(f"{i//2 + 1}. {uci_move}")
+                    output.append(f"{i // 2 + 1}. {uci_move}")
                 else:
                     output[-1] += f" {uci_move}"
 
@@ -175,7 +178,7 @@ def play_game():
         output = []
         for i, uci_move in enumerate(moves):
             if i % 2 == 0:
-                output.append(f"{i//2 + 1}. {uci_move}")
+                output.append(f"{i // 2 + 1}. {uci_move}")
             else:
                 output[-1] += f" {uci_move}"
         print(" ".join(output))
@@ -190,6 +193,7 @@ def play_game():
     stockfish.stdin.flush()
     chesscpp.wait(timeout=2)
     stockfish.wait(timeout=2)
+
 
 if __name__ == "__main__":
     play_game()

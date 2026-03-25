@@ -114,16 +114,20 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 - `docs/superpowers/specs/2026-03-23-ai-refactor-and-perf-design.md` — AI.cpp refactor + performance wins (completed)
 - `docs/superpowers/plans/2026-03-23-ai-refactor-and-perf.md` — Implementation plan for the above
 
-## Code Formatting
+## Code Formatting & Linting
 
-All C++ files use `clang-format` (Google-based style, 2-space indent, 100 col limit). Config is in `.clang-format`.
+A git pre-commit hook auto-formats staged files and lint-checks Python before each commit.
+
+- **C++**: `clang-format` (Google-based, 2-space indent, 100 col). Config: `.clang-format`
+- **Python**: `ruff` format + lint (E/W/F/I/UP/B/SIM rules, 100 col). Config: `pyproject.toml`
 
 ```bash
-# Format all project files
+# Format everything manually
 find src/ inc/ test/ -name "*.cpp" -o -name "*.h" | xargs clang-format -i
+ruff format scripts/ && ruff check scripts/ --fix
 ```
 
-A git pre-commit hook auto-formats staged C++ files. Install clang-format via `pip install clang-format` if not available.
+Install tools: `pip install clang-format ruff`
 
 ## Build System Notes
 
