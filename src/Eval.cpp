@@ -232,7 +232,27 @@ static int evaluateKingSafety(const Position& pos, Color c) {
   // Non-linear penalty: attacks become exponentially more dangerous
   // Only apply when at least 2 pieces are attacking (1 attacker is normal)
   if (numAttackers >= 2) {
-    score -= attackUnits * attackUnits / 2;
+    int penalty = attackUnits * attackUnits / 2;
+
+    // Queen-presence scaling: attacks without a queen are far less likely
+    // to lead to mate, so reduce the penalty significantly
+    bool attackerHasQueen = (pos.pieces(them, QUEEN) != 0);
+    if (!attackerHasQueen) {
+      bool defenderHasQueen = (pos.pieces(c, QUEEN) != 0);
+      penalty = defenderHasQueen ? penalty * 40 / 100   // Only defender has queen
+                                 : penalty * 25 / 100;  // Neither side has queen
+    }
+
+    // Material-scaled king danger: amplify penalty when defending side has
+    // more material (more to lose = more reason to worry about king safety)
+    int materialAdv = pos.materialCount(c) - pos.materialCount(them);
+    if (materialAdv > 0) {
+      int capped = std::min(materialAdv, 800);
+      int dangerScale = 256 + capped * 128 / 800;
+      penalty = penalty * dangerScale / 256;
+    }
+
+    score -= penalty;
   }
 
   return score;
