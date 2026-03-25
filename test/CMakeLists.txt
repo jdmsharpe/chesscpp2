@@ -25,6 +25,8 @@ add_library(chess_core STATIC
     ../src/MoveGen.cpp
 )
 target_include_directories(chess_core PUBLIC ../inc)
+target_compile_features(chess_core PUBLIC cxx_std_20)
+set_target_properties(chess_core PROPERTIES CXX_EXTENSIONS OFF)
 
 # "chess_engine" — full engine (core + eval + AI + books + tablebases)
 add_library(chess_engine STATIC
@@ -41,10 +43,9 @@ target_link_libraries(chess_engine PUBLIC chess_core fathom)
 
 # --- Test targets ---
 
-# Bitboard tests (only needs Bitboard.cpp directly)
-add_executable(test_bitboard test_bitboard.cpp ../src/Bitboard.cpp)
-target_include_directories(test_bitboard PRIVATE ../inc)
-target_link_libraries(test_bitboard PRIVATE GTest::gtest_main pthread)
+# Bitboard tests
+add_executable(test_bitboard test_bitboard.cpp)
+target_link_libraries(test_bitboard PRIVATE chess_core GTest::gtest_main pthread)
 
 # MoveGen tests
 add_executable(test_movegen test_movegen.cpp)

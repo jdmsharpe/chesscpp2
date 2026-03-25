@@ -30,34 +30,34 @@ constexpr Bitboard RANK_7_BB = RANK_1_BB << 48;
 constexpr Bitboard RANK_8_BB = RANK_1_BB << 56;
 
 // Set/clear/test bits
-constexpr Bitboard squareBB(Square sq) {
+[[nodiscard]] constexpr Bitboard squareBB(Square sq) {
   return 1ULL << sq;
 }
 
-constexpr bool testBit(Bitboard bb, Square sq) {
+[[nodiscard]] constexpr bool testBit(Bitboard bb, Square sq) {
   return bb & squareBB(sq);
 }
 
-constexpr Bitboard setBit(Bitboard bb, Square sq) {
+[[nodiscard]] constexpr Bitboard setBit(Bitboard bb, Square sq) {
   return bb | squareBB(sq);
 }
 
-constexpr Bitboard clearBit(Bitboard bb, Square sq) {
+[[nodiscard]] constexpr Bitboard clearBit(Bitboard bb, Square sq) {
   return bb & ~squareBB(sq);
 }
 
 // Population count (number of set bits)
-inline int popCount(Bitboard bb) {
+[[nodiscard]] inline int popCount(Bitboard bb) {
   return __builtin_popcountll(bb);
 }
 
 // Find least significant bit (LSB)
-inline Square lsb(Bitboard bb) {
+[[nodiscard]] inline Square lsb(Bitboard bb) {
   return Square(__builtin_ctzll(bb));
 }
 
 // Find most significant bit (MSB)
-inline Square msb(Bitboard bb) {
+[[nodiscard]] inline Square msb(Bitboard bb) {
   return Square(63 - __builtin_clzll(bb));
 }
 
@@ -70,36 +70,36 @@ inline Square popLsb(Bitboard& bb) {
 
 // Shift operations
 template <Color C>
-constexpr Bitboard pawnPush(Bitboard bb) {
+[[nodiscard]] constexpr Bitboard pawnPush(Bitboard bb) {
   return C == WHITE ? bb << 8 : bb >> 8;
 }
 
 template <Color C>
-constexpr Bitboard pawnDoublePush(Bitboard bb) {
+[[nodiscard]] constexpr Bitboard pawnDoublePush(Bitboard bb) {
   return C == WHITE ? bb << 16 : bb >> 16;
 }
 
 template <Color C>
-constexpr Bitboard pawnAttackWest(Bitboard bb) {
+[[nodiscard]] constexpr Bitboard pawnAttackWest(Bitboard bb) {
   return C == WHITE ? (bb & ~FILE_A_BB) << 7 : (bb & ~FILE_A_BB) >> 9;
 }
 
 template <Color C>
-constexpr Bitboard pawnAttackEast(Bitboard bb) {
+[[nodiscard]] constexpr Bitboard pawnAttackEast(Bitboard bb) {
   return C == WHITE ? (bb & ~FILE_H_BB) << 9 : (bb & ~FILE_H_BB) >> 7;
 }
 
 template <Color C>
-constexpr Bitboard pawnAttacks(Bitboard bb) {
+[[nodiscard]] constexpr Bitboard pawnAttacks(Bitboard bb) {
   return pawnAttackWest<C>(bb) | pawnAttackEast<C>(bb);
 }
 
 // File and rank helpers
-constexpr Bitboard fileBB(Square sq) {
+[[nodiscard]] constexpr Bitboard fileBB(Square sq) {
   return FILE_A_BB << fileOf(sq);
 }
 
-constexpr Bitboard rankBB(Square sq) {
+[[nodiscard]] constexpr Bitboard rankBB(Square sq) {
   return RANK_1_BB << (rankOf(sq) * 8);
 }
 
@@ -116,20 +116,20 @@ extern Bitboard KingAttacks[64];
 
 // Between bitboards (squares between two squares)
 extern Bitboard BetweenBB[64][64];
-inline Bitboard betweenBB(Square sq1, Square sq2) {
+[[nodiscard]] inline Bitboard betweenBB(Square sq1, Square sq2) {
   return BetweenBB[sq1][sq2];
 }
 
 // Pawn attack lookup
-inline Bitboard pawnAttacks(Color c, Square sq) {
+[[nodiscard]] inline Bitboard pawnAttacks(Color c, Square sq) {
   return PawnAttacks[c][sq];
 }
 
-inline Bitboard knightAttacks(Square sq) {
+[[nodiscard]] inline Bitboard knightAttacks(Square sq) {
   return KnightAttacks[sq];
 }
 
-inline Bitboard kingAttacks(Square sq) {
+[[nodiscard]] inline Bitboard kingAttacks(Square sq) {
   return KingAttacks[sq];
 }
 

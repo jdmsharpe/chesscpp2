@@ -3,10 +3,33 @@
 #include "Game.h"
 #include "Types.h"
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+
+// RAII deleters for SDL resources
+struct SDLWindowDeleter {
+  void operator()(SDL_Window* w) const {
+    if (w) SDL_DestroyWindow(w);
+  }
+};
+struct SDLRendererDeleter {
+  void operator()(SDL_Renderer* r) const {
+    if (r) SDL_DestroyRenderer(r);
+  }
+};
+struct SDLTextureDeleter {
+  void operator()(SDL_Texture* t) const {
+    if (t) SDL_DestroyTexture(t);
+  }
+};
+
+using SDLWindowPtr = std::unique_ptr<SDL_Window, SDLWindowDeleter>;
+using SDLRendererPtr = std::unique_ptr<SDL_Renderer, SDLRendererDeleter>;
+using SDLTexturePtr = std::unique_ptr<SDL_Texture, SDLTextureDeleter>;
 
 // SDL2-based GUI window for chess
 class Window {
@@ -20,13 +43,10 @@ class Window {
   // Main game loop
   void run(Game& game);
 
-  // Clean up
-  void cleanup();
-
  private:
-  SDL_Window* window;
-  SDL_Renderer* renderer;
-  SDL_Texture* piecesTexture;
+  SDLWindowPtr window;
+  SDLRendererPtr renderer;
+  SDLTexturePtr piecesTexture;
   int width, height;
   int squareSize;
   int pieceWidth, pieceHeight;  // Size of each sprite in the texture
@@ -34,6 +54,10 @@ class Window {
   // Selected square for move input
   Square selectedSquare;
   bool pieceSelected;
+
+  // Cached legal moves (regenerated only when position changes)
+  std::vector<Move> cachedLegalMoves;
+  HashKey cachedPositionKey;
 
   // AI thinking visualization
   Move currentAIMove;
@@ -45,12 +69,12 @@ class Window {
   bool loadPieceSprites();
 
   // Drawing methods
-  void draw(const Game& game);
+  void draw(Game& game);
   void drawBoard();
   void drawPieces(const Position& pos);
   void drawSquare(Square sq, SDL_Color color);
   void drawPiece(Piece pc, Square sq);
-  void drawHighlights(const Game& game);
+  void drawHighlights(Game& game);
   void drawAIThinking();
 
   // AI callback
@@ -58,8 +82,8 @@ class Window {
 
   // Input handling
   void handleClick(int x, int y, Game& game);
-  Square pixelToSquare(int x, int y) const;
+  [[nodiscard]] Square pixelToSquare(int x, int y) const;
 
   // Get sprite coordinates for a piece
-  SDL_Rect getPieceSpriteRect(Piece pc) const;
+  [[nodiscard]] SDL_Rect getPieceSpriteRect(Piece pc) const;
 };

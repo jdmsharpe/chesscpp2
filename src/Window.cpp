@@ -12,6 +12,7 @@ Window::Window(int width, int height)
       height(height),
       selectedSquare(NO_SQUARE),
       pieceSelected(false),
+      cachedPositionKey(0),
       currentAIMove(0),
       currentAIDepth(0),
       aiThinking(false),
@@ -20,7 +21,12 @@ Window::Window(int width, int height)
 }
 
 Window::~Window() {
-  cleanup();
+  // Release SDL resources in correct order (textures before renderer before window)
+  piecesTexture.reset();
+  renderer.reset();
+  window.reset();
+  IMG_Quit();
+  SDL_Quit();
 }
 
 bool Window::init() {
@@ -36,15 +42,15 @@ bool Window::init() {
     return false;
   }
 
-  window = SDL_CreateWindow("Chess++ with Bitboards", SDL_WINDOWPOS_CENTERED,
-                            SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN);
+  window.reset(SDL_CreateWindow("Chess++ with Bitboards", SDL_WINDOWPOS_CENTERED,
+                                SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN));
 
   if (!window) {
     std::cerr << "Window creation failed: " << SDL_GetError() << "\n";
     return false;
   }
 
-  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  renderer.reset(SDL_CreateRenderer(window.get(), -1, SDL_RENDERER_ACCELERATED));
   if (!renderer) {
     std::cerr << "Renderer creation failed: " << SDL_GetError() << "\n";
     return false;
@@ -78,7 +84,7 @@ bool Window::loadPieceSprites() {
     return false;
   }
 
-  piecesTexture = SDL_CreateTextureFromSurface(renderer, surface);
+  piecesTexture.reset(SDL_CreateTextureFromSurface(renderer.get(), surface));
 
   // Get texture dimensions
   pieceWidth = surface->w / 6;   // 6 pieces per row
@@ -92,23 +98,6 @@ bool Window::loadPieceSprites() {
   }
 
   return true;
-}
-
-void Window::cleanup() {
-  if (piecesTexture) {
-    SDL_DestroyTexture(piecesTexture);
-    piecesTexture = nullptr;
-  }
-  if (renderer) {
-    SDL_DestroyRenderer(renderer);
-    renderer = nullptr;
-  }
-  if (window) {
-    SDL_DestroyWindow(window);
-    window = nullptr;
-  }
-  IMG_Quit();
-  SDL_Quit();
 }
 
 void Window::run(Game& game) {
@@ -181,8 +170,8 @@ void Window::onAIMoveUpdate(Move move, int depth, const Position& pos) {
   }
 
   // Immediately redraw with current move highlighted
-  SDL_SetRenderDrawColor(renderer, 40, 40, 40, 255);
-  SDL_RenderClear(renderer);
+  SDL_SetRenderDrawColor(renderer.get(), 40, 40, 40, 255);
+  SDL_RenderClear(renderer.get());
 
   // Draw board
   drawBoard();
@@ -206,9 +195,9 @@ void Window::onAIMoveUpdate(Move move, int depth, const Position& pos) {
     fromRect.y = fromRank * squareSize;
     fromRect.w = squareSize;
     fromRect.h = squareSize;
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 100);
-    SDL_RenderFillRect(renderer, &fromRect);
+    SDL_SetRenderDrawBlendMode(renderer.get(), SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer.get(), aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 100);
+    SDL_RenderFillRect(renderer.get(), &fromRect);
 
     // Draw "to" square highlight
     int toFile = fileOf(to);
@@ -218,11 +207,11 @@ void Window::onAIMoveUpdate(Move move, int depth, const Position& pos) {
     toRect.y = toRank * squareSize;
     toRect.w = squareSize;
     toRect.h = squareSize;
-    SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 150);
-    SDL_RenderFillRect(renderer, &toRect);
+    SDL_SetRenderDrawColor(renderer.get(), aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 150);
+    SDL_RenderFillRect(renderer.get(), &toRect);
 
     // Draw thick arrow from -> to
-    SDL_SetRenderDrawColor(renderer, 255, 100, 255, 255);
+    SDL_SetRenderDrawColor(renderer.get(), 255, 100, 255, 255);
     int fromX = fromFile * squareSize + squareSize / 2;
     int fromY = fromRank * squareSize + squareSize / 2;
     int toX = toFile * squareSize + squareSize / 2;
@@ -230,19 +219,19 @@ void Window::onAIMoveUpdate(Move move, int depth, const Position& pos) {
 
     // Draw multiple lines for thickness
     for (int offset = -3; offset <= 3; ++offset) {
-      SDL_RenderDrawLine(renderer, fromX + offset, fromY, toX + offset, toY);
-      SDL_RenderDrawLine(renderer, fromX, fromY + offset, toX, toY + offset);
+      SDL_RenderDrawLine(renderer.get(), fromX + offset, fromY, toX + offset, toY);
+      SDL_RenderDrawLine(renderer.get(), fromX, fromY + offset, toX, toY + offset);
     }
   }
 
   // Present immediately (don't wait for main loop)
-  SDL_RenderPresent(renderer);
+  SDL_RenderPresent(renderer.get());
 }
 
-void Window::draw(const Game& game) {
+void Window::draw(Game& game) {
   // Clear screen
-  SDL_SetRenderDrawColor(renderer, 40, 40, 40, 255);
-  SDL_RenderClear(renderer);
+  SDL_SetRenderDrawColor(renderer.get(), 40, 40, 40, 255);
+  SDL_RenderClear(renderer.get());
 
   // Draw board and pieces
   drawBoard();
@@ -255,7 +244,7 @@ void Window::draw(const Game& game) {
   }
 
   // Present
-  SDL_RenderPresent(renderer);
+  SDL_RenderPresent(renderer.get());
 }
 
 void Window::drawBoard() {
@@ -281,11 +270,11 @@ void Window::drawSquare(Square sq, SDL_Color color) {
   rect.w = squareSize;
   rect.h = squareSize;
 
-  SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-  SDL_RenderFillRect(renderer, &rect);
+  SDL_SetRenderDrawColor(renderer.get(), color.r, color.g, color.b, color.a);
+  SDL_RenderFillRect(renderer.get(), &rect);
 }
 
-void Window::drawHighlights(const Game& game) {
+void Window::drawHighlights(Game& game) {
   if (pieceSelected && selectedSquare != NO_SQUARE) {
     // Highlight selected square
     SDL_Color highlight = {100, 200, 100, 100};
@@ -299,16 +288,19 @@ void Window::drawHighlights(const Game& game) {
     rect.w = squareSize;
     rect.h = squareSize;
 
-    SDL_SetRenderDrawColor(renderer, highlight.r, highlight.g, highlight.b, 128);
-    SDL_RenderFillRect(renderer, &rect);
+    SDL_SetRenderDrawColor(renderer.get(), highlight.r, highlight.g, highlight.b, 128);
+    SDL_RenderFillRect(renderer.get(), &rect);
 
-    // Highlight legal move squares
-    // Need mutable copy to generate legal moves
-    Game& mutableGame = const_cast<Game&>(game);
-    std::vector<Move> legalMoves = MoveGen::generateLegalMoves(mutableGame.getPosition());
+    // Refresh cached legal moves only when the position changes
+    HashKey currentKey = game.getPosition().hash();
+    if (currentKey != cachedPositionKey) {
+      cachedLegalMoves = MoveGen::generateLegalMoves(game.getPosition());
+      cachedPositionKey = currentKey;
+    }
+
     SDL_Color legalMoveColor = {200, 200, 100, 100};
 
-    for (Move move : legalMoves) {
+    for (Move move : cachedLegalMoves) {
       if (fromSquare(move) == selectedSquare) {
         Square to = toSquare(move);
         int toFile = fileOf(to);
@@ -320,8 +312,9 @@ void Window::drawHighlights(const Game& game) {
         toRect.w = squareSize / 3;
         toRect.h = squareSize / 3;
 
-        SDL_SetRenderDrawColor(renderer, legalMoveColor.r, legalMoveColor.g, legalMoveColor.b, 180);
-        SDL_RenderFillRect(renderer, &toRect);
+        SDL_SetRenderDrawColor(renderer.get(), legalMoveColor.r, legalMoveColor.g, legalMoveColor.b,
+                               180);
+        SDL_RenderFillRect(renderer.get(), &toRect);
       }
     }
   }
@@ -357,7 +350,7 @@ void Window::drawPiece(Piece pc, Square sq) {
   dstRect.w = squareSize;
   dstRect.h = squareSize;
 
-  SDL_RenderCopy(renderer, piecesTexture, &srcRect, &dstRect);
+  SDL_RenderCopy(renderer.get(), piecesTexture.get(), &srcRect, &dstRect);
 }
 
 SDL_Rect Window::getPieceSpriteRect(Piece pc) const {
@@ -499,8 +492,8 @@ void Window::drawAIThinking() {
   fromRect.y = fromRank * squareSize;
   fromRect.w = squareSize;
   fromRect.h = squareSize;
-  SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 100);
-  SDL_RenderFillRect(renderer, &fromRect);
+  SDL_SetRenderDrawColor(renderer.get(), aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 100);
+  SDL_RenderFillRect(renderer.get(), &fromRect);
 
   // Draw "to" square
   int toFile = fileOf(to);
@@ -510,11 +503,11 @@ void Window::drawAIThinking() {
   toRect.y = toRank * squareSize;
   toRect.w = squareSize;
   toRect.h = squareSize;
-  SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 150);
-  SDL_RenderFillRect(renderer, &toRect);
+  SDL_SetRenderDrawColor(renderer.get(), aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 150);
+  SDL_RenderFillRect(renderer.get(), &toRect);
 
   // Draw arrow or line from -> to
-  SDL_SetRenderDrawColor(renderer, 255, 100, 255, 255);
+  SDL_SetRenderDrawColor(renderer.get(), 255, 100, 255, 255);
   int fromX = fromFile * squareSize + squareSize / 2;
   int fromY = fromRank * squareSize + squareSize / 2;
   int toX = toFile * squareSize + squareSize / 2;
@@ -522,7 +515,7 @@ void Window::drawAIThinking() {
 
   // Draw thick line (simulate by drawing multiple lines)
   for (int offset = -2; offset <= 2; ++offset) {
-    SDL_RenderDrawLine(renderer, fromX + offset, fromY, toX + offset, toY);
-    SDL_RenderDrawLine(renderer, fromX, fromY + offset, toX, toY + offset);
+    SDL_RenderDrawLine(renderer.get(), fromX + offset, fromY, toX + offset, toY);
+    SDL_RenderDrawLine(renderer.get(), fromX, fromY + offset, toX, toY + offset);
   }
 }
