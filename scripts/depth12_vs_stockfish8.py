@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Chess++ (Depth 12) vs Stockfish (Skill Level 6)
+Chess++ (Depth 12) vs Stockfish (Skill Level 8)
 """
 
 import sys
@@ -8,9 +8,9 @@ import sys
 from tournament import PROJECT_ROOT, Engine, Tournament
 
 print("=" * 60)
-print("Chess++ Depth-12 vs Stockfish Skill Level 6")
+print("Chess++ Depth-12 vs Stockfish Skill Level 8")
 print("=" * 60)
-print("Testing Chess++ at depth 12 against Stockfish at skill level 6")
+print("Testing Chess++ at depth 12 against Stockfish at skill level 8")
 print("=" * 60)
 
 chesscpp = Engine(
@@ -20,9 +20,9 @@ chesscpp = Engine(
 )
 
 stockfish = Engine(
-    name="Stockfish Level-6",
+    name="Stockfish Level-8",
     path=f"{PROJECT_ROOT}/stockfish/stockfish-ubuntu-x86-64-avx2",
-    options={"Skill Level": "6", "Hash": "64"},
+    options={"Skill Level": "8", "Hash": "64"},
 )
 
 tournament = Tournament([chesscpp, stockfish])

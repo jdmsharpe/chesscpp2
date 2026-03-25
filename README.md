@@ -20,6 +20,7 @@ An improved chess engine implementation using bitboards for fast move generation
 
 - **SDL2 GUI** - Graphical chess board with mouse input
 - **Console mode** - Text-based interface for terminal play
+- **Game animator** - Pygame-based PGN viewer with sliding pieces, fading move arrows, and playback controls
 - **Interactive features**:
   - Click to select and move pieces
   - Visual highlighting of selected squares and legal moves
@@ -58,6 +59,12 @@ sudo apt-get install libsdl2-dev libsdl2-image-dev
 
 ```bash
 brew install sdl2 sdl2_image
+```
+
+### Python Dependencies (for scripts)
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Usage
@@ -104,6 +111,37 @@ brew install sdl2 sdl2_image
 - `fen` - Show FEN string of current position
 - `ai` or `a` - Make AI move
 - `quit` or `q` - Exit
+
+### Game Animator
+
+Replay saved games from PGN files with animated piece movement and move arrows:
+
+```bash
+# Animate the most recent game in games/
+python scripts/animate_game.py
+
+# Animate a specific PGN file
+python scripts/animate_game.py games/some_game.pgn
+
+# Select game N from a multi-game PGN
+python scripts/animate_game.py games/multi.pgn -g 3
+```
+
+**Controls:**
+
+| Key | Action |
+| --- | ------ |
+| Space | Pause / Resume |
+| Right / L | Next move |
+| Left / H | Previous move |
+| Up / K | Speed up |
+| Down / J | Slow down |
+| R | Restart game |
+| F | Flip board |
+| G | Next game (multi-game PGN) |
+| Q / Escape | Quit |
+
+Quiet moves show green arrows, captures show red. Pieces slide with easing animation, and castling animates both king and rook.
 
 ### Syzygy Tablebases
 
