@@ -505,3 +505,53 @@ TEST_F(EvalTest, KingSafety_MaterialScaling_NoAmplificationWhenDown) {
 
   EXPECT_EQ(safetyA, safetyB);
 }
+
+// =============================================================================
+// King Centralization (Endgame)
+// =============================================================================
+
+TEST_F(EvalTest, KingCentralization_CenterBetterThanCorner) {
+  // White king on d4 (center) vs White king on a1 (corner).
+  // Both positions are otherwise identical — just pawns, endgame-like.
+  Position posCentral;
+  posCentral.setFromFEN("8/8/8/8/3K4/8/8/7k w - - 0 1");
+  int centralScore = Eval::kingCentralizationForTest(posCentral, WHITE);
+
+  Position posCorner;
+  posCorner.setFromFEN("8/8/8/8/8/8/8/K6k w - - 0 1");
+  int cornerScore = Eval::kingCentralizationForTest(posCorner, WHITE);
+
+  // Center king should get a higher centralization bonus than corner king.
+  EXPECT_GT(centralScore, cornerScore)
+      << "Central king (" << centralScore << ") should score higher than corner king ("
+      << cornerScore << ")";
+
+  // d4 = centerDistance 0, bonus = 48. a1 = centerDistance 6, bonus = 0.
+  EXPECT_EQ(centralScore, 48);
+  EXPECT_EQ(cornerScore, 0);
+}
+
+// =============================================================================
+// Passed Pawn Advancement (Endgame)
+// =============================================================================
+
+TEST_F(EvalTest, PassedPawn_AdvancedPasserScoresHigher) {
+  // White passer on 6th rank (e6) vs White passer on 3rd rank (e3).
+  // Kings on a4/h4 so king distances are equalized for both positions.
+  // Black knight on g4 keeps the position from being a pure K+P ending.
+  // Uses full eval because the advancement bonus lives in pawn structure,
+  // not in king-pawn proximity.
+  Position posAdvanced;
+  posAdvanced.setFromFEN("8/8/4P3/8/K5nk/8/8/8 w - - 0 1");
+  int advancedScore = Eval::evaluate(posAdvanced);
+
+  Position posEarly;
+  posEarly.setFromFEN("8/8/8/8/K5nk/4P3/8/8 w - - 0 1");
+  int earlyScore = Eval::evaluate(posEarly);
+
+  // The 6th-rank passer should evaluate much better for White.
+  // Advancement bonus difference: 90 - 20 = +70cp raw, amplified in endgame.
+  EXPECT_GT(advancedScore, earlyScore)
+      << "6th-rank passer (" << advancedScore << ") should evaluate higher than 3rd-rank passer ("
+      << earlyScore << ")";
+}

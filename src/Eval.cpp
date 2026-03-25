@@ -80,7 +80,7 @@ static int evaluatePawnStructureSide(const Position& pos, Color c) {
 
     if (!(enemyPawns & passedMask)) {
       int advancement = c == WHITE ? rank - 1 : 6 - rank;
-      static constexpr int advancementBonus[6] = {10, 15, 25, 40, 70, 120};
+      static constexpr int advancementBonus[6] = {10, 20, 35, 55, 90, 150};
       int bonus = advancementBonus[advancement];
 
       // Clear path bonus
@@ -569,6 +569,11 @@ static int evaluateKingPawnProximity(const Position& pos, Color c) {
   return score;
 }
 
+static int evaluateKingCentralization(const Position& pos, Color c) {
+  Square kingSq = BB::lsb(pos.pieces(c, KING));
+  return (6 - centerDistance(kingSq)) * 8;
+}
+
 }  // anonymous namespace
 
 namespace Eval {
@@ -589,6 +594,8 @@ int evaluate(const Position& pos) {
   int bishopScore = evaluateBishops(pos, WHITE) - evaluateBishops(pos, BLACK);
   int knightScore = evaluateKnights(pos, WHITE) - evaluateKnights(pos, BLACK);
   int kingPawnProx = evaluateKingPawnProximity(pos, WHITE) - evaluateKingPawnProximity(pos, BLACK);
+  int kingCentralization =
+      evaluateKingCentralization(pos, WHITE) - evaluateKingCentralization(pos, BLACK);
 
   int phase = pos.getGamePhase();
 
@@ -597,7 +604,7 @@ int evaluate(const Position& pos) {
 
   int endgameScore = material + (positional / 2) + kingPositionalEG + (mobility / 2) +
                      (kingSafety / 4) + (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
-                     bishopScore + knightScore + kingPawnProx;
+                     bishopScore + knightScore + (kingPawnProx * 3 / 2) + kingCentralization;
 
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
 
@@ -621,5 +628,13 @@ int evaluate(const Position& pos) {
 
 int kingSafetyForTest(const Position& pos, Color c) {
   return evaluateKingSafety(pos, c);
+}
+
+int kingPawnProximityForTest(const Position& pos, Color c) {
+  return evaluateKingPawnProximity(pos, c);
+}
+
+int kingCentralizationForTest(const Position& pos, Color c) {
+  return evaluateKingCentralization(pos, c);
 }
 }  // namespace Eval
