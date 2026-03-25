@@ -3,6 +3,7 @@
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
+#include "PST.h"
 #include "Position.h"
 #include "Zobrist.h"
 
@@ -367,4 +368,152 @@ TEST_F(PositionTest, InCheck_NoKing_ReturnsFalse) {
 
   // Clean up — unmake the move to restore valid state
   pos.unmakeMove();
+}
+
+// =============================================================================
+// Incremental Eval Accumulator Tests
+// =============================================================================
+
+// Helper: recompute all incremental accumulators from scratch and compare
+static void verifyAccumulators(const Position& pos, const std::string& ctx) {
+  // Recompute material from scratch
+  int expectedMatW = 0, expectedMatB = 0;
+  int expectedMgPST = 0, expectedMgKingPST = 0, expectedEgKingPST = 0;
+  int expectedPhase = 0;
+
+  for (int sq = 0; sq < 64; sq++) {
+    Piece pc = pos.pieceAt(Square(sq));
+    if (pc == NO_PIECE) continue;
+    Color c = colorOf(pc);
+    PieceType pt = typeOf(pc);
+    int sign = (c == WHITE) ? 1 : -1;
+
+    if (c == WHITE) expectedMatW += PST::pieceValue[pt];
+    else expectedMatB += PST::pieceValue[pt];
+
+    expectedMgPST += sign * PST::mgValue(pt, c, Square(sq));
+    if (pt == KING) {
+      expectedMgKingPST += sign * PST::mgKingValue(c, Square(sq));
+      expectedEgKingPST += sign * PST::egKingValue(c, Square(sq));
+    }
+    expectedPhase += PST::phaseWeight[pt];
+  }
+
+  EXPECT_EQ(pos.materialCount(WHITE), expectedMatW)
+      << ctx << " — White material mismatch";
+  EXPECT_EQ(pos.materialCount(BLACK), expectedMatB)
+      << ctx << " — Black material mismatch";
+  EXPECT_EQ(pos.getMgPST(), expectedMgPST)
+      << ctx << " — mgPST mismatch";
+  EXPECT_EQ(pos.getMgKingPST(), expectedMgKingPST)
+      << ctx << " — mgKingPST mismatch";
+  EXPECT_EQ(pos.getEgKingPST(), expectedEgKingPST)
+      << ctx << " — egKingPST mismatch";
+
+  // Phase: compare raw phase via the tapered output
+  const int TOTAL_PHASE = 24;
+  int p = std::max(0, std::min(expectedPhase, TOTAL_PHASE));
+  int expectedTapered = std::min(256, (p * 256 + TOTAL_PHASE / 2) / TOTAL_PHASE);
+  EXPECT_EQ(pos.getGamePhase(), expectedTapered)
+      << ctx << " — game phase mismatch";
+}
+
+TEST_F(PositionTest, Accumulators_StartingPosition) {
+  Position pos;
+  pos.setFromFEN(STARTING_FEN);
+  verifyAccumulators(pos, "starting position");
+}
+
+TEST_F(PositionTest, Accumulators_Kiwipete) {
+  Position pos;
+  pos.setFromFEN(
+      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+  verifyAccumulators(pos, "Kiwipete");
+}
+
+TEST_F(PositionTest, Accumulators_PreservedAfterMakeUnmake) {
+  // Test across multiple positions with all move types
+  const char* fens[] = {
+      STARTING_FEN,
+      // Kiwipete: castling, captures, en passant
+      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+      // Promotion position
+      "8/P7/8/8/8/8/p7/4K2k w - - 0 1",
+      // En passant
+      "8/8/8/pP6/8/8/8/4K2k w - a6 0 1",
+      // All castling available
+      "r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1",
+      // Endgame with passed pawns
+      "8/5k2/8/2Pp4/8/8/8/4K3 w - d6 0 1",
+  };
+
+  for (const char* fen : fens) {
+    Position pos;
+    pos.setFromFEN(fen);
+
+    // Record original accumulators
+    int origMatW = pos.materialCount(WHITE);
+    int origMatB = pos.materialCount(BLACK);
+    int origMgPST = pos.getMgPST();
+    int origMgKingPST = pos.getMgKingPST();
+    int origEgKingPST = pos.getEgKingPST();
+    int origPhase = pos.getGamePhase();
+
+    auto moves = MoveGen::generateLegalMoves(pos);
+    for (Move move : moves) {
+      pos.makeMove(move);
+      // Verify accumulators are consistent after makeMove
+      verifyAccumulators(pos, std::string("after move in ") + fen);
+      pos.unmakeMove();
+
+      // Verify accumulators restored exactly
+      EXPECT_EQ(pos.materialCount(WHITE), origMatW)
+          << "White material not restored after unmake in " << fen;
+      EXPECT_EQ(pos.materialCount(BLACK), origMatB)
+          << "Black material not restored after unmake in " << fen;
+      EXPECT_EQ(pos.getMgPST(), origMgPST)
+          << "mgPST not restored after unmake in " << fen;
+      EXPECT_EQ(pos.getMgKingPST(), origMgKingPST)
+          << "mgKingPST not restored after unmake in " << fen;
+      EXPECT_EQ(pos.getEgKingPST(), origEgKingPST)
+          << "egKingPST not restored after unmake in " << fen;
+      EXPECT_EQ(pos.getGamePhase(), origPhase)
+          << "game phase not restored after unmake in " << fen;
+    }
+  }
+}
+
+TEST_F(PositionTest, Accumulators_MultiMoveSequence) {
+  // Play a sequence of moves and verify accumulators stay in sync
+  Position pos;
+  pos.setFromFEN(STARTING_FEN);
+
+  // Italian Game opening: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5
+  const char* moveStrs[] = {"e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5"};
+
+  for (const char* ms : moveStrs) {
+    Square from = stringToSquare(std::string(ms, 2));
+    Square to = stringToSquare(std::string(ms + 2, 2));
+    auto moves = MoveGen::generateLegalMoves(pos);
+    Move found = 0;
+    for (Move m : moves) {
+      if (fromSquare(m) == from && toSquare(m) == to) {
+        found = m;
+        break;
+      }
+    }
+    ASSERT_NE(found, 0) << "Move " << ms << " not found";
+    pos.makeMove(found);
+    verifyAccumulators(pos, std::string("after ") + ms);
+  }
+
+  // Now unmake all and verify we return to start
+  for (int i = 0; i < 6; i++) pos.unmakeMove();
+  verifyAccumulators(pos, "after unmaking Italian Game sequence");
+
+  Position fresh;
+  fresh.setFromFEN(STARTING_FEN);
+  EXPECT_EQ(pos.materialCount(WHITE), fresh.materialCount(WHITE));
+  EXPECT_EQ(pos.materialCount(BLACK), fresh.materialCount(BLACK));
+  EXPECT_EQ(pos.getMgPST(), fresh.getMgPST());
 }

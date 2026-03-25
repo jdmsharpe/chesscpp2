@@ -10,7 +10,7 @@ An improved chess engine implementation using bitboards for fast move generation
 - **Magic bitboards** - Ultra-fast sliding piece (rook, bishop, queen) move generation
 - **Fast move generation** - Optimized legal move generation using bit operations
 - **AI with alpha-beta pruning** - Minimax search with staged move generation (MovePicker), multi-bucket transposition table, logarithmic LMR, singular extensions, killer/history/countermove heuristics, adaptive null move pruning, aspiration windows, and quiescence search
-- **Piece-square tables** - Positional evaluation with tapered eval, pawn hash table, and king safety attack units
+- **Incremental evaluation** - PST scores and material maintained incrementally in make/unmake for O(1) eval lookups; tapered eval, pawn hash table, and king safety attack units
 - **UCI protocol** - Integration with chess GUIs and tournament software
 - **FEN support** - Load and save positions in Forsyth-Edwards Notation
 - **Syzygy tablebases** - Perfect endgame play with 3-4-5 piece tablebases
@@ -161,18 +161,19 @@ info string Polyglot book move: e2e4
 1. **Types.h** - Core type definitions (Bitboard, Square, Move, Piece, etc.)
 2. **Bitboard.h/cpp** - Bitboard operations and pre-computed attack tables
 3. **Magic.h/cpp** - Magic bitboard implementation for sliding pieces
-4. **Position.h/cpp** - Board position with bitboard representation
-5. **MoveGen.h/cpp** - Fast legal move generation
-6. **MovePicker.h/cpp** - Staged move generation (TT → captures → killers → quiets)
-7. **AI.h/cpp** - Alpha-beta search with multi-bucket TT, logarithmic LMR, singular extensions, adaptive null move pruning, history malus, PVS
-8. **Eval.h/cpp** - Position evaluation: PST, tapered eval, pawn hash table, king safety with attack units, mobility
-9. **Game.h/cpp** - Game controller and rules
-10. **Window.h/cpp** - SDL2 GUI implementation
-11. **UCI.h/cpp** - Universal Chess Interface protocol
-12. **Polyglot.h/cpp** - Polyglot opening book support
-13. **Tablebase.h/cpp** - Syzygy tablebase probing via Fathom
-14. **Zobrist.h/cpp** - Zobrist hashing for positions
-15. **Logger.h** - Thread-safe logging utility
+4. **Position.h/cpp** - Board position with bitboard representation, incremental eval accumulators (material, PST, phase)
+5. **PST.h** - Shared constexpr piece-square tables and material values
+6. **MoveGen.h/cpp** - Fast legal move generation
+7. **MovePicker.h/cpp** - Staged move generation (TT → captures → killers → quiets)
+8. **AI.h/cpp** - Alpha-beta search with multi-bucket TT, logarithmic LMR, singular extensions, adaptive null move pruning, history malus, PVS, TT prefetching
+9. **Eval.h/cpp** - Position evaluation: incremental PST via Position accumulators, tapered eval, pawn hash table, king safety with attack units, mobility
+10. **Game.h/cpp** - Game controller and rules
+11. **Window.h/cpp** - SDL2 GUI implementation
+12. **UCI.h/cpp** - Universal Chess Interface protocol
+13. **Polyglot.h/cpp** - Polyglot opening book support
+14. **Tablebase.h/cpp** - Syzygy tablebase probing via Fathom
+15. **Zobrist.h/cpp** - Zobrist hashing for positions
+16. **Logger.h** - Thread-safe logging utility
 
 ### Bitboard Advantages
 
@@ -219,7 +220,7 @@ From the starting position with **magic bitboards enabled**:
 
 ## Testing
 
-Run the full test suite (162 tests):
+Run the full test suite (166 tests):
 
 ```bash
 cd build
@@ -231,7 +232,7 @@ Or run individual test suites:
 ```bash
 ./test/test_bitboard      # Bitboard operations
 ./test/test_movegen        # Move generation + checking moves
-./test/test_position       # Position make/unmake, SEE, draw detection
+./test/test_position       # Position make/unmake, SEE, draw detection, incremental eval accumulators
 ./test/test_polyglot       # Polyglot book handling
 ./test/test_eval           # Evaluation (material, PST, pawn structure, king safety)
 ./test/test_ai             # Search (mate detection, TT, time management)
@@ -277,7 +278,7 @@ Potential improvements:
 - [x] Search decomposed into named helpers (probeTT, storeTT, tryNullMovePruning, canPrune)
 - [x] SEE caching via ScoredMove struct (eliminates redundant SEE in quiescence)
 - [x] Efficient checking move generation for quiescence search
-- [x] Comprehensive test suite (162 tests: eval, search, UCI, game logic, move generation)
+- [x] Comprehensive test suite (166 tests: eval, search, UCI, game logic, move generation, incremental accumulators)
 - [x] Syzygy tablebase probing during search (WDL probe at depth >= 2)
 - [x] Staged move generation via MovePicker (TT → captures → killers → quiets → bad captures)
 - [x] Lazy legality checking (skip make/unmake for pruned/cutoff moves)
@@ -290,6 +291,8 @@ Potential improvements:
 - [x] Pawn hash table (16K entries, ~95% hit rate, caches pawn structure evaluation)
 - [x] Adaptive null move pruning (R = 3 + depth/6, eval-boosted)
 - [x] Futility pruning fix (no longer incorrectly applied at PV nodes)
+- [x] Incremental PST and material tracking (O(1) eval lookups via Position accumulators, shared PST.h)
+- [x] TT prefetching (`__builtin_prefetch` on TT bucket before probe, hides memory latency)
 - [ ] Lazy SMP multithreading (designed, not yet implemented — see `docs/plans/`)
 - [ ] NNUE evaluation (neural network-based eval for major strength gain)
 - [ ] Endgame-specific knowledge (K+R vs K technique, opposition, pawn endgame rules)

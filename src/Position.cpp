@@ -1,5 +1,6 @@
 #include "Position.h"
 
+#include <algorithm>
 #include <cctype>
 #include <iostream>
 #include <sstream>
@@ -25,6 +26,12 @@ void Position::clear() {
   halfmoves = 0;
   fullmoves = 1;
   positionHash = 0;
+  material[WHITE] = 0;
+  material[BLACK] = 0;
+  mgPST = 0;
+  mgKingPST = 0;
+  egKingPST = 0;
+  phase = 0;
   history.clear();
 }
 
@@ -36,6 +43,16 @@ void Position::putPiece(Piece pc, Square sq) {
   byColor[c] |= BB::squareBB(sq);
   board[sq] = pc;
   positionHash ^= Zobrist::psq[pc][sq];
+
+  // Incremental eval updates
+  int sign = (c == WHITE) ? 1 : -1;
+  material[c] += PST::pieceValue[pt];
+  mgPST += sign * PST::mgValue(pt, c, sq);
+  if (pt == KING) {
+    mgKingPST += sign * PST::mgKingValue(c, sq);
+    egKingPST += sign * PST::egKingValue(c, sq);
+  }
+  phase += PST::phaseWeight[pt];
 }
 
 void Position::removePiece(Square sq) {
@@ -49,6 +66,16 @@ void Position::removePiece(Square sq) {
   byColor[c] &= ~BB::squareBB(sq);
   positionHash ^= Zobrist::psq[pc][sq];
   board[sq] = NO_PIECE;
+
+  // Incremental eval updates
+  int sign = (c == WHITE) ? 1 : -1;
+  material[c] -= PST::pieceValue[pt];
+  mgPST -= sign * PST::mgValue(pt, c, sq);
+  if (pt == KING) {
+    mgKingPST -= sign * PST::mgKingValue(c, sq);
+    egKingPST -= sign * PST::egKingValue(c, sq);
+  }
+  phase -= PST::phaseWeight[pt];
 }
 
 void Position::movePiece(Square from, Square to) {
@@ -510,14 +537,10 @@ Bitboard Position::attacksTo(Square sq) const {
   return attacks;
 }
 
-int Position::materialCount(Color c) const {
-  int material = 0;
-  material += BB::popCount(pieces(c, PAWN)) * 100;
-  material += BB::popCount(pieces(c, KNIGHT)) * 320;
-  material += BB::popCount(pieces(c, BISHOP)) * 330;
-  material += BB::popCount(pieces(c, ROOK)) * 500;
-  material += BB::popCount(pieces(c, QUEEN)) * 900;
-  return material;
+int Position::getGamePhase() const {
+  const int TOTAL_PHASE = 24;
+  int p = std::max(0, std::min(phase, TOTAL_PHASE));
+  return std::min(256, (p * 256 + TOTAL_PHASE / 2) / TOTAL_PHASE);
 }
 
 void Position::print() const {

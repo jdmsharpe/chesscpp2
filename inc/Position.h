@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "PST.h"
 #include "Types.h"
 
 // Represents a complete chess position using bitboards
@@ -80,8 +81,12 @@ class Position {
   // Static Exchange Evaluation
   int see(Move move) const;
 
-  // Position evaluation helpers
-  int materialCount(Color c) const;
+  // Position evaluation helpers (incrementally maintained)
+  int materialCount(Color c) const { return material[c]; }
+  int getMgPST() const { return mgPST; }           // White - Black non-king MG PST
+  int getMgKingPST() const { return mgKingPST; }   // White - Black king MG PST
+  int getEgKingPST() const { return egKingPST; }   // White - Black king EG PST
+  int getGamePhase() const;                         // Tapered phase (0-256)
 
   // Print board
   void print() const;
@@ -101,6 +106,13 @@ class Position {
   int halfmoves;         // Halfmove clock (for 50-move rule)
   int fullmoves;         // Fullmove number
   HashKey positionHash;  // Zobrist hash of position
+
+  // Incrementally maintained evaluation accumulators
+  int material[2];   // Material count per color (centipawns)
+  int mgPST;         // White - Black non-king middlegame PST score
+  int mgKingPST;     // White - Black king middlegame PST score
+  int egKingPST;     // White - Black king endgame PST score
+  int phase;         // Raw game phase (0-24, higher = more material)
 
   // Move history for unmake (StateInfo defined in public section)
   std::vector<StateInfo> history;

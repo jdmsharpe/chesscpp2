@@ -327,6 +327,9 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
                 Move excludedMove) {
   nodesSearched++;
 
+  // Prefetch TT bucket early — cache line loads while we do draw detection
+  prefetchTT(pos.hash());
+
   // Periodic time check (every 1024 nodes)
   if ((nodesSearched & 0x3FF) == 0 && shouldStop()) {
     return 0;

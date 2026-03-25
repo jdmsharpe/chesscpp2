@@ -187,6 +187,12 @@ class AI {
   PruningResult canPrune(Position& pos, int depth, int alpha, int beta,
                          bool isPVNode);
 
+  // TT prefetch: issue cache line load ahead of probe
+  void prefetchTT(HashKey hash) const {
+    size_t bucketIdx = hash % ttBucketCount;
+    __builtin_prefetch(&transpositionTable[bucketIdx], 0, 1);
+  }
+
   // TT probe: returns cutoff score or nullopt. Populates info struct.
   std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta,
                              int ply, TTProbeInfo& info);

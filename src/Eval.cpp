@@ -2,77 +2,11 @@
 
 #include "Bitboard.h"
 #include "Magic.h"
+#include "PST.h"
 #include "Types.h"
 #include "Zobrist.h"
 
 namespace {
-// Piece-square tables for positional evaluation
-
-// Pawns - encourage center control and advancement
-constexpr int pawn[64] = {
-    0,   0,   0,   0,   0,   0,   0,   0,    // Rank 1
-    5,   10,  10, -20, -20,  10,  10,  5,    // Rank 2
-    5,   10,  20,  40,  40,  20,  10,  5,    // Rank 3
-    10,  15,  30,  70,  70,  30,  15,  10,   // Rank 4
-    15,  20,  35,  80,  80,  35,  20,  15,   // Rank 5
-    20,  25,  30,  35,  35,  30,  25,  20,   // Rank 6
-    50,  50,  50,  50,  50,  50,  50,  50,   // Rank 7
-    0,   0,   0,   0,   0,   0,   0,   0};   // Rank 8
-
-// Knights - heavily prefer center, punish edges
-constexpr int knight[64] = {
-    -50, -40, -30, -25, -25, -30, -40, -50,
-    -40, -20,   0,   5,   5,   0, -20, -40,
-    -30,   5,  10,  15,  15,  10,   5, -30,
-    -25,   5,  15,  20,  20,  15,   5, -25,
-    -25,   5,  15,  20,  20,  15,   5, -25,
-    -30,   5,  10,  15,  15,  10,   5, -30,
-    -40, -20,   0,   5,   5,   0, -20, -40,
-    -50, -40, -30, -25, -25, -30, -40, -50};
-
-// Bishops - prefer long diagonals and center
-constexpr int bishop[64] = {
-    -20, -10, -10, -10, -10, -10, -10, -20,
-    -10,   5,   0,   0,   0,   0,   5, -10,
-    -10,  10,  10,  10,  10,  10,  10, -10,
-    -10,   0,  10,  15,  15,  10,   0, -10,
-    -10,   5,   5,  15,  15,   5,   5, -10,
-    -10,   0,   5,  10,  10,   5,   0, -10,
-    -10,   5,   0,   0,   0,   0,   5, -10,
-    -20, -10, -10, -10, -10, -10, -10, -20};
-
-// Rooks - prefer 7th rank and open files
-constexpr int rook[64] = {
-     0,   0,   0,   5,   5,   0,   0,   0,
-    20,  20,  20,  20,  20,  20,  20,  20,
-    -5,   0,   0,   0,   0,   0,   0,  -5,
-    -5,   0,   0,   0,   0,   0,   0,  -5,
-    -5,   0,   0,   0,   0,   0,   0,  -5,
-    -5,   0,   0,   0,   0,   0,   0,  -5,
-    -5,   0,   0,   0,   0,   0,   0,  -5,
-     0,   0,   0,   0,   0,   0,   0,   0};
-
-// Kings - stay safe in middlegame
-constexpr int kingMiddle[64] = {
-     20,  30,  10,   0,   0,  10,  30,  20,
-    -10, -20, -20, -20, -20, -20, -20, -10,
-    -20, -30, -30, -40, -40, -30, -30, -20,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30};
-
-// Kings - centralize in endgame
-constexpr int kingEndgame[64] = {
-    -20, -10, -10, -10, -10, -10, -10, -20,
-    -10,   0,   5,   5,   5,   5,   0, -10,
-    -10,   5,  10,  15,  15,  10,   5, -10,
-    -10,   5,  15,  20,  20,  15,   5, -10,
-    -10,   5,  15,  20,  20,  15,   5, -10,
-    -10,   5,  10,  15,  15,  10,   5, -10,
-    -10,   0,   5,   5,   5,   5,   0, -10,
-    -20, -10, -10, -10, -10, -10, -10, -20};
 
 // ============================================================================
 // [Improvement 5] Pawn Hash Table
@@ -348,19 +282,6 @@ static int evaluateMobility(const Position& pos, Color c) {
   return mobility * 2;
 }
 
-static int getGamePhase(const Position& pos) {
-  int phase = 0;
-  phase += BB::popCount(pos.pieces(WHITE, KNIGHT)) * 1;
-  phase += BB::popCount(pos.pieces(BLACK, KNIGHT)) * 1;
-  phase += BB::popCount(pos.pieces(WHITE, BISHOP)) * 1;
-  phase += BB::popCount(pos.pieces(BLACK, BISHOP)) * 1;
-  phase += BB::popCount(pos.pieces(WHITE, ROOK)) * 2;
-  phase += BB::popCount(pos.pieces(BLACK, ROOK)) * 2;
-  phase += BB::popCount(pos.pieces(WHITE, QUEEN)) * 4;
-  phase += BB::popCount(pos.pieces(BLACK, QUEEN)) * 4;
-  const int TOTAL_PHASE = 24;
-  return std::min(256, (phase * 256 + TOTAL_PHASE / 2) / TOTAL_PHASE);
-}
 
 static int evaluateDevelopment(const Position& pos, Color c) {
   int score = 0;
@@ -648,68 +569,11 @@ static int evaluateKingPawnProximity(const Position& pos, Color c) {
 
 namespace Eval {
 int evaluate(const Position& pos) {
+  // Incrementally maintained by Position::putPiece/removePiece — O(1) lookups
   int material = pos.materialCount(WHITE) - pos.materialCount(BLACK);
-
-  int positional = 0;
-
-  // White pieces
-  Bitboard pawns = pos.pieces(WHITE, PAWN);
-  while (pawns) {
-    Square sq = BB::popLsb(pawns);
-    positional += pawn[sq];
-  }
-  Bitboard knights = pos.pieces(WHITE, KNIGHT);
-  while (knights) {
-    Square sq = BB::popLsb(knights);
-    positional += knight[sq];
-  }
-  Bitboard bishops = pos.pieces(WHITE, BISHOP);
-  while (bishops) {
-    Square sq = BB::popLsb(bishops);
-    positional += bishop[sq];
-  }
-  Bitboard rooks = pos.pieces(WHITE, ROOK);
-  while (rooks) {
-    Square sq = BB::popLsb(rooks);
-    positional += rook[sq];
-  }
-
-  int kingPositionalMG = 0;
-  int kingPositionalEG = 0;
-  Bitboard kings = pos.pieces(WHITE, KING);
-  while (kings) {
-    Square sq = BB::popLsb(kings);
-    kingPositionalMG += kingMiddle[sq];
-    kingPositionalEG += kingEndgame[sq];
-  }
-
-  // Black pieces (flip board)
-  pawns = pos.pieces(BLACK, PAWN);
-  while (pawns) {
-    Square sq = BB::popLsb(pawns);
-    positional -= pawn[sq ^ 56];
-  }
-  knights = pos.pieces(BLACK, KNIGHT);
-  while (knights) {
-    Square sq = BB::popLsb(knights);
-    positional -= knight[sq ^ 56];
-  }
-  bishops = pos.pieces(BLACK, BISHOP);
-  while (bishops) {
-    Square sq = BB::popLsb(bishops);
-    positional -= bishop[sq ^ 56];
-  }
-  rooks = pos.pieces(BLACK, ROOK);
-  while (rooks) {
-    Square sq = BB::popLsb(rooks);
-    positional -= rook[sq ^ 56];
-  }
-  kings = pos.pieces(BLACK, KING);
-  while (kings) {
-    Square sq = BB::popLsb(kings);
-    kingPositionalMG -= kingMiddle[sq ^ 56];
-    kingPositionalEG -= kingEndgame[sq ^ 56];
-  }
+  int positional = pos.getMgPST();             // Non-king MG PST (pawn/knight/bishop/rook)
+  int kingPositionalMG = pos.getMgKingPST();   // King MG PST
+  int kingPositionalEG = pos.getEgKingPST();   // King EG PST
 
   // [Improvement 5] Pawn structure via hash table
   int pawnStructure = evaluatePawnStructure(pos);
@@ -725,7 +589,7 @@ int evaluate(const Position& pos) {
   int kingPawnProx = evaluateKingPawnProximity(pos, WHITE) -
                      evaluateKingPawnProximity(pos, BLACK);
 
-  int phase = getGamePhase(pos);
+  int phase = pos.getGamePhase();
 
   int openingScore = material + positional + kingPositionalMG + mobility +
                      kingSafety + pawnStructure + development + rookScore +
