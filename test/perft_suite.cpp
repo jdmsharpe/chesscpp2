@@ -1,14 +1,14 @@
-#include <chrono>
-#include <iomanip>
-#include <iostream>
-#include <string>
-#include <vector>
-
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
 #include "Zobrist.h"
+
+#include <chrono>
+#include <iomanip>
+#include <iostream>
+#include <string>
+#include <vector>
 
 // Standard perft test positions with known results
 struct PerftTest {
@@ -79,8 +79,7 @@ struct PerftResult {
   bool correct;
 };
 
-PerftResult runPerftTest(const std::string& fen, int depth,
-                         uint64_t expectedNodes) {
+PerftResult runPerftTest(const std::string& fen, int depth, uint64_t expectedNodes) {
   Position pos;
   pos.setFromFEN(fen);
 
@@ -88,8 +87,7 @@ PerftResult runPerftTest(const std::string& fen, int depth,
   uint64_t nodes = MoveGen::perft(pos, depth);
   auto end = std::chrono::high_resolution_clock::now();
 
-  double timeMs =
-      std::chrono::duration<double, std::milli>(end - start).count();
+  double timeMs = std::chrono::duration<double, std::milli>(end - start).count();
 
   return {nodes, timeMs, nodes == expectedNodes};
 }
@@ -119,25 +117,20 @@ void runTestSuite(const PerftTest& test, int maxDepth) {
     uint64_t expected = test.expectedNodes[depth - 1];
     PerftResult result = runPerftTest(test.fen, depth, expected);
 
-    uint64_t nodesPerSecond =
-        (result.timeMs > 0) ? (result.nodes * 1000.0 / result.timeMs) : 0;
+    uint64_t nodesPerSecond = (result.timeMs > 0) ? (result.nodes * 1000.0 / result.timeMs) : 0;
 
     std::cout << std::right << std::setw(5) << depth << " │ ";
-    std::cout << std::right << std::setw(11) << formatNumber(result.nodes)
-              << " │ ";
+    std::cout << std::right << std::setw(11) << formatNumber(result.nodes) << " │ ";
     std::cout << std::right << std::setw(10) << formatNumber(expected) << " │ ";
-    std::cout << std::right << std::setw(8) << formatTime(result.timeMs)
-              << " │ ";
-    std::cout << std::right << std::setw(11) << formatNumber(nodesPerSecond)
-              << " │ ";
+    std::cout << std::right << std::setw(8) << formatTime(result.timeMs) << " │ ";
+    std::cout << std::right << std::setw(11) << formatNumber(nodesPerSecond) << " │ ";
     std::cout << (result.correct ? "✓ PASS" : "✗ FAIL") << "\n";
 
     testCount++;
     if (result.correct) passCount++;
   }
 
-  std::cout << "\nSummary: " << passCount << "/" << testCount
-            << " tests passed\n";
+  std::cout << "\nSummary: " << passCount << "/" << testCount << " tests passed\n";
 }
 
 // Run all tests
@@ -156,8 +149,7 @@ void runAllTests(int maxDepth) {
     runTestSuite(test, maxDepth);
 
     // Count how many tests passed
-    for (int depth = 1;
-         depth <= maxDepth && depth <= static_cast<int>(test.expectedNodes.size());
+    for (int depth = 1; depth <= maxDepth && depth <= static_cast<int>(test.expectedNodes.size());
          depth++) {
       totalTests++;
       uint64_t expected = test.expectedNodes[depth - 1];
@@ -170,9 +162,8 @@ void runAllTests(int maxDepth) {
 
   std::cout << "\n╔═══════════════════════════════════════════════════════════════"
                "═════════════╗\n";
-  std::cout << "║ FINAL RESULTS: " << std::setw(3) << totalPassed << "/"
-            << std::setw(3) << totalTests
-            << " tests passed                                        ║\n";
+  std::cout << "║ FINAL RESULTS: " << std::setw(3) << totalPassed << "/" << std::setw(3)
+            << totalTests << " tests passed                                        ║\n";
   std::cout << "╚═══════════════════════════════════════════════════════════════"
                "═════════════╝\n\n";
 }
@@ -198,8 +189,7 @@ void runQuickBenchmark() {
     uint64_t nodes = MoveGen::perft(pos, depth);
     auto end = std::chrono::high_resolution_clock::now();
 
-    double timeMs =
-        std::chrono::duration<double, std::milli>(end - start).count();
+    double timeMs = std::chrono::duration<double, std::milli>(end - start).count();
     uint64_t nps = (timeMs > 0) ? (nodes * 1000.0 / timeMs) : 0;
 
     std::cout << std::right << std::setw(5) << depth << " │ ";
@@ -209,8 +199,7 @@ void runQuickBenchmark() {
 
     // Stop if it's taking too long
     if (timeMs > 30000) {
-      std::cout << "\nStopping benchmark (depth " << depth
-                << " took > 30 seconds)\n";
+      std::cout << "\nStopping benchmark (depth " << depth << " took > 30 seconds)\n";
       break;
     }
   }
@@ -242,8 +231,7 @@ int main(int argc, char* argv[]) {
       std::cout << "Options:\n";
       std::cout << "  -q, --quick       Run quick benchmark only (starting "
                    "position)\n";
-      std::cout
-          << "  -d, --depth N     Maximum depth to test (default: 5)\n";
+      std::cout << "  -d, --depth N     Maximum depth to test (default: 5)\n";
       std::cout << "  -h, --help        Show this help message\n";
       return 0;
     }

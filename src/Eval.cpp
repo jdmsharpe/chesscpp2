@@ -86,11 +86,9 @@ static int evaluatePawnStructureSide(const Position& pos, Color c) {
       // Clear path bonus
       Bitboard pathAhead = 0ULL;
       if (c == WHITE) {
-        for (int r = rank + 1; r < 8; ++r)
-          pathAhead |= BB::squareBB(r * 8 + file);
+        for (int r = rank + 1; r < 8; ++r) pathAhead |= BB::squareBB(r * 8 + file);
       } else {
-        for (int r = rank - 1; r >= 0; --r)
-          pathAhead |= BB::squareBB(r * 8 + file);
+        for (int r = rank - 1; r >= 0; --r) pathAhead |= BB::squareBB(r * 8 + file);
       }
       if (!(pos.occupied() & pathAhead)) {
         bonus += 15;
@@ -148,8 +146,7 @@ static int evaluatePawnStructure(const Position& pos) {
   }
 
   // Cache miss — compute and store
-  int score = evaluatePawnStructureSide(pos, WHITE) -
-              evaluatePawnStructureSide(pos, BLACK);
+  int score = evaluatePawnStructureSide(pos, WHITE) - evaluatePawnStructureSide(pos, BLACK);
   entry.pawnKey = pawnKey;
   entry.score = score;
   return score;
@@ -166,24 +163,20 @@ static int evaluateKingSafety(const Position& pos, Color c) {
   // Pawn shield bonus
   Bitboard pawns = pos.pieces(c, PAWN);
   if (c == WHITE) {
-    for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1);
-         ++f) {
+    for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1); ++f) {
       if (pawns & BB::squareBB(1 * 8 + f)) score += 10;
       if (pawns & BB::squareBB(2 * 8 + f)) score += 5;
     }
   } else {
-    for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1);
-         ++f) {
+    for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1); ++f) {
       if (pawns & BB::squareBB(6 * 8 + f)) score += 10;
       if (pawns & BB::squareBB(5 * 8 + f)) score += 5;
     }
   }
 
   // Open file near king penalty
-  for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1);
-       ++f) {
-    Bitboard filePawns =
-        (pos.pieces(WHITE, PAWN) | pos.pieces(BLACK, PAWN)) & BB::fileBB(f);
+  for (int f = std::max(0, kingFile - 1); f <= std::min(7, kingFile + 1); ++f) {
+    Bitboard filePawns = (pos.pieces(WHITE, PAWN) | pos.pieces(BLACK, PAWN)) & BB::fileBB(f);
     if (!filePawns) {
       score -= 20;
     }
@@ -258,8 +251,7 @@ static int evaluateMobility(const Position& pos, Color c) {
   Bitboard bishops = pos.pieces(c, BISHOP);
   while (bishops) {
     Square sq = BB::popLsb(bishops);
-    Bitboard attacks =
-        Magic::bishopAttacks(sq, pos.occupied()) & ~pos.pieces(c);
+    Bitboard attacks = Magic::bishopAttacks(sq, pos.occupied()) & ~pos.pieces(c);
     mobility += BB::popCount(attacks);
   }
 
@@ -273,15 +265,14 @@ static int evaluateMobility(const Position& pos, Color c) {
   Bitboard queens = pos.pieces(c, QUEEN);
   while (queens) {
     Square sq = BB::popLsb(queens);
-    Bitboard attacks = (Magic::bishopAttacks(sq, pos.occupied()) |
-                        Magic::rookAttacks(sq, pos.occupied())) &
-                       ~pos.pieces(c);
+    Bitboard attacks =
+        (Magic::bishopAttacks(sq, pos.occupied()) | Magic::rookAttacks(sq, pos.occupied())) &
+        ~pos.pieces(c);
     mobility += BB::popCount(attacks);
   }
 
   return mobility * 2;
 }
-
 
 static int evaluateDevelopment(const Position& pos, Color c) {
   int score = 0;
@@ -429,8 +420,7 @@ static int evaluateKnights(const Position& pos, Color c) {
     bool isOutpostRank = false;
     if (c == WHITE && (rank == RANK_4 || rank == RANK_5 || rank == RANK_6))
       isOutpostRank = true;
-    else if (c == BLACK &&
-             (rank == RANK_5 || rank == RANK_4 || rank == RANK_3))
+    else if (c == BLACK && (rank == RANK_5 || rank == RANK_4 || rank == RANK_3))
       isOutpostRank = true;
 
     if (isOutpostRank) {
@@ -441,26 +431,22 @@ static int evaluateKnights(const Position& pos, Color c) {
         bool canBeAttacked = false;
         if (c == WHITE) {
           for (int r = rank; r < 8; ++r) {
-            if (file > 0 &&
-                (enemyPawns & BB::squareBB(r * 8 + file - 1))) {
+            if (file > 0 && (enemyPawns & BB::squareBB(r * 8 + file - 1))) {
               canBeAttacked = true;
               break;
             }
-            if (file < 7 &&
-                (enemyPawns & BB::squareBB(r * 8 + file + 1))) {
+            if (file < 7 && (enemyPawns & BB::squareBB(r * 8 + file + 1))) {
               canBeAttacked = true;
               break;
             }
           }
         } else {
           for (int r = rank; r >= 0; --r) {
-            if (file > 0 &&
-                (enemyPawns & BB::squareBB(r * 8 + file - 1))) {
+            if (file > 0 && (enemyPawns & BB::squareBB(r * 8 + file - 1))) {
               canBeAttacked = true;
               break;
             }
-            if (file < 7 &&
-                (enemyPawns & BB::squareBB(r * 8 + file + 1))) {
+            if (file < 7 && (enemyPawns & BB::squareBB(r * 8 + file + 1))) {
               canBeAttacked = true;
               break;
             }
@@ -488,8 +474,7 @@ static int centerDistance(Square sq) {
 }
 
 static int kingDistance(Square a, Square b) {
-  return std::max(std::abs(fileOf(a) - fileOf(b)),
-                  std::abs(rankOf(a) - rankOf(b)));
+  return std::max(std::abs(fileOf(a) - fileOf(b)), std::abs(rankOf(a) - rankOf(b)));
 }
 
 static int evaluateMopUp(const Position& pos, int materialBalance, int phase) {
@@ -499,8 +484,7 @@ static int evaluateMopUp(const Position& pos, int materialBalance, int phase) {
   Square winnerKing = BB::lsb(pos.pieces(winner, KING));
   Square loserKing = BB::lsb(pos.pieces(~winner, KING));
 
-  int bonus = centerDistance(loserKing) * 10 +
-              (7 - kingDistance(winnerKing, loserKing)) * 5;
+  int bonus = centerDistance(loserKing) * 10 + (7 - kingDistance(winnerKing, loserKing)) * 5;
 
   return winner == WHITE ? bonus : -bonus;
 }
@@ -571,33 +555,28 @@ namespace Eval {
 int evaluate(const Position& pos) {
   // Incrementally maintained by Position::putPiece/removePiece — O(1) lookups
   int material = pos.materialCount(WHITE) - pos.materialCount(BLACK);
-  int positional = pos.getMgPST();             // Non-king MG PST (pawn/knight/bishop/rook)
-  int kingPositionalMG = pos.getMgKingPST();   // King MG PST
-  int kingPositionalEG = pos.getEgKingPST();   // King EG PST
+  int positional = pos.getMgPST();            // Non-king MG PST (pawn/knight/bishop/rook)
+  int kingPositionalMG = pos.getMgKingPST();  // King MG PST
+  int kingPositionalEG = pos.getEgKingPST();  // King EG PST
 
   // [Improvement 5] Pawn structure via hash table
   int pawnStructure = evaluatePawnStructure(pos);
 
-  int kingSafety =
-      evaluateKingSafety(pos, WHITE) - evaluateKingSafety(pos, BLACK);
+  int kingSafety = evaluateKingSafety(pos, WHITE) - evaluateKingSafety(pos, BLACK);
   int mobility = evaluateMobility(pos, WHITE) - evaluateMobility(pos, BLACK);
-  int development =
-      evaluateDevelopment(pos, WHITE) - evaluateDevelopment(pos, BLACK);
+  int development = evaluateDevelopment(pos, WHITE) - evaluateDevelopment(pos, BLACK);
   int rookScore = evaluateRooks(pos, WHITE) - evaluateRooks(pos, BLACK);
   int bishopScore = evaluateBishops(pos, WHITE) - evaluateBishops(pos, BLACK);
   int knightScore = evaluateKnights(pos, WHITE) - evaluateKnights(pos, BLACK);
-  int kingPawnProx = evaluateKingPawnProximity(pos, WHITE) -
-                     evaluateKingPawnProximity(pos, BLACK);
+  int kingPawnProx = evaluateKingPawnProximity(pos, WHITE) - evaluateKingPawnProximity(pos, BLACK);
 
   int phase = pos.getGamePhase();
 
-  int openingScore = material + positional + kingPositionalMG + mobility +
-                     kingSafety + pawnStructure + development + rookScore +
-                     bishopScore + knightScore;
+  int openingScore = material + positional + kingPositionalMG + mobility + kingSafety +
+                     pawnStructure + development + rookScore + bishopScore + knightScore;
 
-  int endgameScore = material + (positional / 2) + kingPositionalEG +
-                     (mobility / 2) + (kingSafety / 4) +
-                     (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
+  int endgameScore = material + (positional / 2) + kingPositionalEG + (mobility / 2) +
+                     (kingSafety / 4) + (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
                      bishopScore + knightScore + kingPawnProx;
 
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;

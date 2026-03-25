@@ -1,10 +1,10 @@
-#include <gtest/gtest.h>
-
 #include "Bitboard.h"
 #include "Game.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Zobrist.h"
+
+#include <gtest/gtest.h>
 
 class GameTest : public ::testing::Test {
  protected:
@@ -210,8 +210,7 @@ TEST_F(GameTest, ParseMove_TooShort_ReturnsZero) {
 
 TEST_F(GameTest, LoadFEN_ValidFEN_ReturnsTrue) {
   Game game;
-  EXPECT_TRUE(game.loadFEN(
-      "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2"));
+  EXPECT_TRUE(game.loadFEN("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2"));
 }
 
 TEST_F(GameTest, LoadFEN_UpdatesResult) {
@@ -233,8 +232,7 @@ TEST_F(GameTest, SaveFEN_ReturnsCurrentFEN) {
 
 TEST_F(GameTest, LoadFEN_ThenSaveFEN_Roundtrip) {
   Game game;
-  std::string fen =
-      "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2";
+  std::string fen = "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2";
   game.loadFEN(fen);
   EXPECT_EQ(game.saveFEN(), fen);
 }

@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "PST.h"
 #include "Position.h"
 #include "Zobrist.h"
+
+#include <gtest/gtest.h>
 
 class PositionTest : public ::testing::Test {
  protected:
@@ -91,7 +91,7 @@ TEST_F(PositionTest, SufficientMaterial_TwoKnights) {
 TEST_F(PositionTest, FiftyMoveRule_NotDraw) {
   Position pos;
   pos.setFromFEN("8/8/8/4k3/8/8/4P3/4K3 w - - 50 1");  // halfmoves = 50
-  EXPECT_FALSE(pos.isDraw());  // Need 100 half-moves (50 full moves)
+  EXPECT_FALSE(pos.isDraw());                          // Need 100 half-moves (50 full moves)
 }
 
 TEST_F(PositionTest, FiftyMoveRule_Draw) {
@@ -182,24 +182,21 @@ TEST_F(PositionTest, MakeUnmake_PreservesPosition) {
   for (Move move : moves) {
     pos.makeMove(move);
     pos.unmakeMove();
-    EXPECT_EQ(pos.getFEN(), originalFEN)
-        << "Position corrupted after make/unmake of move";
+    EXPECT_EQ(pos.getFEN(), originalFEN) << "Position corrupted after make/unmake of move";
   }
 }
 
 TEST_F(PositionTest, MakeUnmake_ComplexPosition) {
   // Position with castling rights, en passant available
   Position pos;
-  pos.setFromFEN(
-      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+  pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
   std::string originalFEN = pos.getFEN();
 
   auto moves = MoveGen::generateLegalMoves(pos);
   for (Move move : moves) {
     pos.makeMove(move);
     pos.unmakeMove();
-    EXPECT_EQ(pos.getFEN(), originalFEN)
-        << "Position corrupted after make/unmake";
+    EXPECT_EQ(pos.getFEN(), originalFEN) << "Position corrupted after make/unmake";
   }
 }
 
@@ -255,8 +252,7 @@ TEST_F(PositionTest, ZobristHash_ConsistentAfterMakeUnmake) {
   for (Move move : moves) {
     pos.makeMove(move);
     pos.unmakeMove();
-    EXPECT_EQ(pos.hash(), originalHash)
-        << "Hash changed after make/unmake";
+    EXPECT_EQ(pos.hash(), originalHash) << "Hash changed after make/unmake";
   }
 }
 
@@ -388,8 +384,10 @@ static void verifyAccumulators(const Position& pos, const std::string& ctx) {
     PieceType pt = typeOf(pc);
     int sign = (c == WHITE) ? 1 : -1;
 
-    if (c == WHITE) expectedMatW += PST::pieceValue[pt];
-    else expectedMatB += PST::pieceValue[pt];
+    if (c == WHITE)
+      expectedMatW += PST::pieceValue[pt];
+    else
+      expectedMatB += PST::pieceValue[pt];
 
     expectedMgPST += sign * PST::mgValue(pt, c, Square(sq));
     if (pt == KING) {
@@ -399,23 +397,17 @@ static void verifyAccumulators(const Position& pos, const std::string& ctx) {
     expectedPhase += PST::phaseWeight[pt];
   }
 
-  EXPECT_EQ(pos.materialCount(WHITE), expectedMatW)
-      << ctx << " — White material mismatch";
-  EXPECT_EQ(pos.materialCount(BLACK), expectedMatB)
-      << ctx << " — Black material mismatch";
-  EXPECT_EQ(pos.getMgPST(), expectedMgPST)
-      << ctx << " — mgPST mismatch";
-  EXPECT_EQ(pos.getMgKingPST(), expectedMgKingPST)
-      << ctx << " — mgKingPST mismatch";
-  EXPECT_EQ(pos.getEgKingPST(), expectedEgKingPST)
-      << ctx << " — egKingPST mismatch";
+  EXPECT_EQ(pos.materialCount(WHITE), expectedMatW) << ctx << " — White material mismatch";
+  EXPECT_EQ(pos.materialCount(BLACK), expectedMatB) << ctx << " — Black material mismatch";
+  EXPECT_EQ(pos.getMgPST(), expectedMgPST) << ctx << " — mgPST mismatch";
+  EXPECT_EQ(pos.getMgKingPST(), expectedMgKingPST) << ctx << " — mgKingPST mismatch";
+  EXPECT_EQ(pos.getEgKingPST(), expectedEgKingPST) << ctx << " — egKingPST mismatch";
 
   // Phase: compare raw phase via the tapered output
   const int TOTAL_PHASE = 24;
   int p = std::max(0, std::min(expectedPhase, TOTAL_PHASE));
   int expectedTapered = std::min(256, (p * 256 + TOTAL_PHASE / 2) / TOTAL_PHASE);
-  EXPECT_EQ(pos.getGamePhase(), expectedTapered)
-      << ctx << " — game phase mismatch";
+  EXPECT_EQ(pos.getGamePhase(), expectedTapered) << ctx << " — game phase mismatch";
 }
 
 TEST_F(PositionTest, Accumulators_StartingPosition) {
@@ -426,8 +418,7 @@ TEST_F(PositionTest, Accumulators_StartingPosition) {
 
 TEST_F(PositionTest, Accumulators_Kiwipete) {
   Position pos;
-  pos.setFromFEN(
-      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+  pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
   verifyAccumulators(pos, "Kiwipete");
 }
 
@@ -471,14 +462,12 @@ TEST_F(PositionTest, Accumulators_PreservedAfterMakeUnmake) {
           << "White material not restored after unmake in " << fen;
       EXPECT_EQ(pos.materialCount(BLACK), origMatB)
           << "Black material not restored after unmake in " << fen;
-      EXPECT_EQ(pos.getMgPST(), origMgPST)
-          << "mgPST not restored after unmake in " << fen;
+      EXPECT_EQ(pos.getMgPST(), origMgPST) << "mgPST not restored after unmake in " << fen;
       EXPECT_EQ(pos.getMgKingPST(), origMgKingPST)
           << "mgKingPST not restored after unmake in " << fen;
       EXPECT_EQ(pos.getEgKingPST(), origEgKingPST)
           << "egKingPST not restored after unmake in " << fen;
-      EXPECT_EQ(pos.getGamePhase(), origPhase)
-          << "game phase not restored after unmake in " << fen;
+      EXPECT_EQ(pos.getGamePhase(), origPhase) << "game phase not restored after unmake in " << fen;
     }
   }
 }

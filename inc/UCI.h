@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
 #include "Game.h"
 #include "Position.h"
+
+#include <string>
+#include <vector>
 
 // UCI (Universal Chess Interface) protocol handler
 class UCI {

@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
-
 #include "AI.h"
 #include "Position.h"
 #include "Types.h"
+
+#include <string>
 
 // Game controller - manages game state and player interactions
 class Game {
@@ -31,15 +31,9 @@ class Game {
   void setAIDepth(int depth) { ai.setDepth(depth); }
   void setAITimeLimit(int ms) { ai.setTimeLimit(ms); }
   void resizeHash(size_t mb) { ai.resizeTT(mb); }
-  void setAIMoveCallback(AI::MoveCallback callback) {
-    ai.setMoveCallback(callback);
-  }
-  void loadOpeningBook(const std::string& filename) {
-    ai.loadOpeningBook(filename);
-  }
-  bool loadPolyglotBook(const std::string& filename) {
-    return ai.loadPolyglotBook(filename);
-  }
+  void setAIMoveCallback(AI::MoveCallback callback) { ai.setMoveCallback(callback); }
+  void loadOpeningBook(const std::string& filename) { ai.loadOpeningBook(filename); }
+  bool loadPolyglotBook(const std::string& filename) { return ai.loadPolyglotBook(filename); }
   Move getAIMove();
 
   // Game status

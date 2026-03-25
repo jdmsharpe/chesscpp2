@@ -1,11 +1,11 @@
 #pragma once
 
-#include <array>
-#include <vector>
-
 #include "MoveGen.h"
 #include "Position.h"
 #include "Types.h"
+
+#include <array>
+#include <vector>
 
 // Staged move generation: yields pseudo-legal moves in priority order.
 // Caller is responsible for legality checking via makeMove + isAttacked.
@@ -19,10 +19,8 @@
 //   6. Bad captures (SEE < 0)
 class MovePicker {
  public:
-  MovePicker(Position& pos, Move ttMove, Move killer1, Move killer2,
-             Move countermove,
-             const std::array<std::array<int, 64>, 64>& history,
-             Move excludedMove = 0);
+  MovePicker(Position& pos, Move ttMove, Move killer1, Move killer2, Move countermove,
+             const std::array<std::array<int, 64>, 64>& history, Move excludedMove = 0);
 
   // Returns next pseudo-legal move, or 0 when exhausted.
   Move next();

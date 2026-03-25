@@ -1,11 +1,11 @@
 #pragma once
 
+#include "Position.h"
+#include "Types.h"
+
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#include "Position.h"
-#include "Types.h"
 
 // Polyglot opening book support
 // Format: 16 bytes per entry

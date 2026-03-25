@@ -1,17 +1,17 @@
 #pragma once
 
+#include "Polyglot.h"
+#include "Position.h"
+#include "Types.h"
+
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <functional>
 #include <optional>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #include <vector>
-
-#include "Polyglot.h"
-#include "Position.h"
-#include "Types.h"
 
 // AI engine with minimax + alpha-beta pruning + transposition table
 class AI {
@@ -90,17 +90,15 @@ class AI {
   enum TTFlag : uint8_t { EXACT = 0, LOWERBOUND = 1, UPPERBOUND = 2 };
 
   struct TTEntry {
-    uint32_t key32 = 0;    // Upper 32 bits of hash
-    int16_t score = 0;     // Centipawn score
-    Move bestMove = 0;     // Best move (uint16_t)
-    int8_t depth = 0;      // Search depth
-    uint8_t flagAge = 0;   // Bits 0-1: flag, bits 2-7: age (0-63)
+    uint32_t key32 = 0;   // Upper 32 bits of hash
+    int16_t score = 0;    // Centipawn score
+    Move bestMove = 0;    // Best move (uint16_t)
+    int8_t depth = 0;     // Search depth
+    uint8_t flagAge = 0;  // Bits 0-1: flag, bits 2-7: age (0-63)
 
     TTFlag getFlag() const { return TTFlag(flagAge & 3); }
     uint8_t getAge() const { return flagAge >> 2; }
-    void setFlagAge(TTFlag f, uint8_t age) {
-      flagAge = static_cast<uint8_t>((age << 2) | (f & 3));
-    }
+    void setFlagAge(TTFlag f, uint8_t age) { flagAge = static_cast<uint8_t>((age << 2) | (f & 3)); }
     bool isEmpty() const { return key32 == 0 && bestMove == 0; }
   };
 
@@ -141,8 +139,7 @@ class AI {
   std::array<int, 64> pvLength;                  // PV length at each ply
 
   // Countermove heuristic (moves that refute other moves)
-  std::array<std::array<Move, 64>, 64>
-      countermoves;  // [from][to] -> refutation
+  std::array<std::array<Move, 64>, 64> countermoves;  // [from][to] -> refutation
 
   // Opening book: FEN -> list of good moves (ordered by preference)
   std::unordered_map<std::string, std::vector<Move>> openingBook;
@@ -152,18 +149,15 @@ class AI {
 
   // Minimax with alpha-beta pruning
   // excludedMove: for singular extension searches (skip this move)
-  int negamax(Position& pos, int depth, int alpha, int beta, int ply,
-              Move excludedMove = 0);
+  int negamax(Position& pos, int depth, int alpha, int beta, int ply, Move excludedMove = 0);
 
   // Quiescence search for tactical positions
   int quiescence(Position& pos, int alpha, int beta, int qsDepth = 0);
 
   // Move ordering for root moves (uses full scoring)
-  std::vector<ScoredMove> orderMoves(Position& pos,
-                                     const std::vector<Move>& moves, int ply,
+  std::vector<ScoredMove> orderMoves(Position& pos, const std::vector<Move>& moves, int ply,
                                      Move ttMove = 0);
-  ScoredMove scoreMoveWithSEE(const Position& pos, Move move, int ply,
-                              Move ttMove);
+  ScoredMove scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove);
 
   // History heuristic: bonus for cutoff moves, malus for failed quiet moves
   void updateHistory(Move move, int bonus);
@@ -175,8 +169,7 @@ class AI {
   bool isKiller(Move move, int ply) const;
 
   // Search helper: attempt null move pruning (adaptive R)
-  std::optional<int> tryNullMovePruning(Position& pos, int depth, int alpha,
-                                        int beta, int ply);
+  std::optional<int> tryNullMovePruning(Position& pos, int depth, int alpha, int beta, int ply);
 
   // Search helper: check static pruning conditions
   struct PruningResult {
@@ -184,8 +177,7 @@ class AI {
     int score;           // only valid if cutoff == true
     bool futilityPrune;  // true = skip quiet moves in move loop
   };
-  PruningResult canPrune(Position& pos, int depth, int alpha, int beta,
-                         bool isPVNode);
+  PruningResult canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode);
 
   // TT prefetch: issue cache line load ahead of probe
   void prefetchTT(HashKey hash) const {
@@ -194,10 +186,9 @@ class AI {
   }
 
   // TT probe: returns cutoff score or nullopt. Populates info struct.
-  std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta,
-                             int ply, TTProbeInfo& info);
+  std::optional<int> probeTT(HashKey hash, int depth, int& alpha, int& beta, int ply,
+                             TTProbeInfo& info);
 
   // TT store with mate score adjustment
-  void storeTT(HashKey hash, int depth, int score, Move bestMove,
-               int alphaOrig, int beta, int ply);
+  void storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta, int ply);
 };

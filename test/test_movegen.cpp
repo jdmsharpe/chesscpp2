@@ -1,12 +1,12 @@
-#include <gtest/gtest.h>
-
-#include <algorithm>
-
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
 #include "Zobrist.h"
+
+#include <algorithm>
+
+#include <gtest/gtest.h>
 
 class MoveGenTest : public ::testing::Test {
  protected:
@@ -44,8 +44,7 @@ TEST_F(MoveGenTest, PerftStartingPosition) {
 
 TEST_F(MoveGenTest, PerftKiwipete) {
   Position pos;
-  pos.setFromFEN(
-      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+  pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
 
   EXPECT_EQ(MoveGen::perft(pos, 1), 48);
   EXPECT_EQ(MoveGen::perft(pos, 2), 2039);
@@ -60,8 +59,7 @@ TEST_F(MoveGenTest, PerftCastlingRights) {
 
 TEST_F(MoveGenTest, PerftPromotions) {
   Position pos;
-  pos.setFromFEN(
-      "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1");
+  pos.setFromFEN("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1");
 
   EXPECT_EQ(MoveGen::perft(pos, 1), 6);
 }
@@ -91,8 +89,7 @@ TEST_F(MoveGenTest, FENLoading) {
   EXPECT_EQ(fen, STARTING_FEN);
 
   // Test another position
-  std::string testFEN =
-      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+  std::string testFEN = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
   pos.setFromFEN(testFEN);
   fen = pos.getFEN();
   EXPECT_EQ(fen, testFEN);
@@ -102,8 +99,7 @@ TEST_F(MoveGenTest, CheckDetection) {
   Position pos;
 
   // Position with white in check
-  pos.setFromFEN(
-      "rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
+  pos.setFromFEN("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3");
   EXPECT_TRUE(pos.inCheck());
 
   // Position without check
@@ -136,13 +132,11 @@ TEST_F(MoveGenTest, MagicBitboardsQueen) {
 TEST_F(MoveGenTest, DiagonalWrappingBugFix) {
   // Test diagonal wrapping bug fix - bishop on F8 should NOT attack H1
   Position pos;
-  pos.setFromFEN(
-      "rnbqkbnr/pppp1ppp/4p3/8/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
+  pos.setFromFEN("rnbqkbnr/pppp1ppp/4p3/8/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
   Bitboard occupied = pos.occupied();
   Bitboard bishopAttacks = Magic::bishopAttacks(F8, occupied);
-  EXPECT_FALSE(
-      BB::testBit(bishopAttacks, H1));  // Should NOT attack h1 (wrapping bug)
-  EXPECT_TRUE(BB::testBit(bishopAttacks, G7));  // Should attack g7
+  EXPECT_FALSE(BB::testBit(bishopAttacks, H1));  // Should NOT attack h1 (wrapping bug)
+  EXPECT_TRUE(BB::testBit(bishopAttacks, G7));   // Should attack g7
 }
 
 // ============================================================
@@ -207,8 +201,7 @@ TEST_F(MoveGenTest, CheckingMoves_DiscoveredCheck) {
   // All of these leave the e-file open for the rook.
   // Some of these may also be direct knight checks (d6, f6 check the king).
   // All should appear as checking moves.
-  EXPECT_GE(checks.size(), 6u)
-      << "Multiple discovered checks should be found";
+  EXPECT_GE(checks.size(), 6u) << "Multiple discovered checks should be found";
 
   // Verify at least one pure discovered check (not a direct knight check)
   // c5, g5, c3, g3, d2, f2 are discovered-only checks
@@ -220,8 +213,7 @@ TEST_F(MoveGenTest, CheckingMoves_DiscoveredCheck) {
       break;
     }
   }
-  EXPECT_TRUE(foundDiscovered)
-      << "Should find at least one pure discovered check";
+  EXPECT_TRUE(foundDiscovered) << "Should find at least one pure discovered check";
 }
 
 TEST_F(MoveGenTest, CheckingMoves_NoCapturesInResults) {
@@ -239,8 +231,7 @@ TEST_F(MoveGenTest, CheckingMoves_NoCapturesInResults) {
     // The move should not be a capture (c7 has a black pawn)
     EXPECT_NE(to, C7) << "Capture Nd5xc7 should not appear in checking moves";
     // Also verify via moveType that no en passant sneaks in
-    EXPECT_NE(moveType(m), EN_PASSANT)
-        << "En passant captures should not appear in checking moves";
+    EXPECT_NE(moveType(m), EN_PASSANT) << "En passant captures should not appear in checking moves";
   }
 
   // But Nf6+ should still be present as a quiet check
@@ -274,11 +265,9 @@ TEST_F(MoveGenTest, CheckingMoves_AllReturnedMovesAreLegal) {
     for (Move m : checks) {
       pos.makeMove(m);
       // After making the move, our king should NOT be in check (legal move)
-      bool ourKingInCheck =
-          pos.isAttacked(BB::lsb(pos.pieces(us, KING)), pos.sideToMove());
-      EXPECT_FALSE(ourKingInCheck)
-          << "Move " << moveToString(m) << " in position " << fen
-          << " leaves our king in check (illegal)";
+      bool ourKingInCheck = pos.isAttacked(BB::lsb(pos.pieces(us, KING)), pos.sideToMove());
+      EXPECT_FALSE(ourKingInCheck) << "Move " << moveToString(m) << " in position " << fen
+                                   << " leaves our king in check (illegal)";
       pos.unmakeMove();
     }
   }
@@ -302,9 +291,8 @@ TEST_F(MoveGenTest, CheckingMoves_AllReturnedMovesGiveCheck) {
 
     for (Move m : checks) {
       pos.makeMove(m);
-      EXPECT_TRUE(pos.inCheck())
-          << "Move " << moveToString(m) << " in position " << fen
-          << " should give check but does not";
+      EXPECT_TRUE(pos.inCheck()) << "Move " << moveToString(m) << " in position " << fen
+                                 << " should give check but does not";
       pos.unmakeMove();
     }
   }
@@ -347,17 +335,14 @@ TEST_F(MoveGenTest, CheckingMoves_BruteForceComparison) {
     }
 
     // Sort both vectors for comparison
-    std::vector<Move> sortedChecking(checkingMoves.begin(),
-                                     checkingMoves.end());
-    std::vector<Move> sortedBrute(bruteForceChecks.begin(),
-                                  bruteForceChecks.end());
+    std::vector<Move> sortedChecking(checkingMoves.begin(), checkingMoves.end());
+    std::vector<Move> sortedBrute(bruteForceChecks.begin(), bruteForceChecks.end());
     std::sort(sortedChecking.begin(), sortedChecking.end());
     std::sort(sortedBrute.begin(), sortedBrute.end());
 
     EXPECT_EQ(sortedChecking.size(), sortedBrute.size())
         << "Mismatch in count for position: " << fen;
-    EXPECT_EQ(sortedChecking, sortedBrute)
-        << "Mismatch in moves for position: " << fen;
+    EXPECT_EQ(sortedChecking, sortedBrute) << "Mismatch in moves for position: " << fen;
   }
 }
 

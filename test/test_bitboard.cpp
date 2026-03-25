@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include "Bitboard.h"
+
+#include <gtest/gtest.h>
 
 class BitboardTest : public ::testing::Test {
  protected:

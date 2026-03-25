@@ -1,14 +1,14 @@
 #include "UCI.h"
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
-
 #include "AI.h"
 #include "Logger.h"
 #include "MoveGen.h"
 #include "Tablebase.h"
 #include "Types.h"
+
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 UCI::UCI() : game(Game::HUMAN_VS_AI), searchDepth(6), debug(false) {
   game.setAIDepth(searchDepth);
@@ -87,7 +87,9 @@ void UCI::handleUCI() {
   std::cout << "uciok" << std::endl;
 }
 
-void UCI::handleIsReady() { std::cout << "readyok" << std::endl; }
+void UCI::handleIsReady() {
+  std::cout << "readyok" << std::endl;
+}
 
 void UCI::handleNewGame() {
   // Don't create new Game object - just reset the position
@@ -136,8 +138,7 @@ void UCI::handlePosition(const std::string& args) {
         }
       } else {
         if (debug) {
-          std::cout << "info string Failed to parse move: " << moveStr
-                    << std::endl;
+          std::cout << "info string Failed to parse move: " << moveStr << std::endl;
         }
         return;
       }
@@ -150,12 +151,12 @@ void UCI::handleGo(const std::string& args) {
   std::string token;
 
   int depth = searchDepth;
-  int movetime = -1;    // milliseconds (explicit movetime)
-  int wtime = -1;       // White's remaining time in ms
-  int btime = -1;       // Black's remaining time in ms
-  int winc = 0;         // White's increment per move in ms
-  int binc = 0;         // Black's increment per move in ms
-  int movestogo = -1;   // Moves until next time control
+  int movetime = -1;   // milliseconds (explicit movetime)
+  int wtime = -1;      // White's remaining time in ms
+  int btime = -1;      // Black's remaining time in ms
+  int winc = 0;        // White's increment per move in ms
+  int binc = 0;        // Black's increment per move in ms
+  int movestogo = -1;  // Moves until next time control
   bool infinite = false;
 
   // Parse go parameters
@@ -220,8 +221,8 @@ void UCI::handleGo(const std::string& args) {
         }
 
         if (debug) {
-          std::cout << "info string Time control: " << ourTime << "ms remaining, "
-                    << ourInc << "ms increment, using " << timeForMove << "ms" << std::endl;
+          std::cout << "info string Time control: " << ourTime << "ms remaining, " << ourInc
+                    << "ms increment, using " << timeForMove << "ms" << std::endl;
         }
       }
     }
@@ -300,11 +301,10 @@ void UCI::handleSetOption(const std::string& args) {
     }
     if (!path.empty() && path != "<empty>") {
       if (AI::initTablebases(path)) {
-        std::cout << "info string Syzygy tablebases loaded ("
-                  << Tablebase::maxPieces() << "-man)" << std::endl;
+        std::cout << "info string Syzygy tablebases loaded (" << Tablebase::maxPieces() << "-man)"
+                  << std::endl;
       } else {
-        std::cout << "info string Failed to load Syzygy tablebases from: "
-                  << path << std::endl;
+        std::cout << "info string Failed to load Syzygy tablebases from: " << path << std::endl;
       }
     }
   } else if (name == "BookPath") {
@@ -318,8 +318,7 @@ void UCI::handleSetOption(const std::string& args) {
       if (game.loadPolyglotBook(path)) {
         std::cout << "info string Polyglot book loaded: " << path << std::endl;
       } else {
-        std::cout << "info string Failed to load Polyglot book from: " << path
-                  << std::endl;
+        std::cout << "info string Failed to load Polyglot book from: " << path << std::endl;
       }
     }
   }
@@ -350,9 +349,8 @@ Move UCI::parseMove(const std::string& moveStr) {
   int toFile = moveStr[2] - 'a';
   int toRank = moveStr[3] - '1';
 
-  if (fromFile < FILE_A || fromFile > FILE_H || fromRank < RANK_1 ||
-      fromRank > RANK_8 || toFile < FILE_A || toFile > FILE_H ||
-      toRank < RANK_1 || toRank > RANK_8) {
+  if (fromFile < FILE_A || fromFile > FILE_H || fromRank < RANK_1 || fromRank > RANK_8 ||
+      toFile < FILE_A || toFile > FILE_H || toRank < RANK_1 || toRank > RANK_8) {
     return 0;
   }
 

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <vector>
-
 #include "Position.h"
 #include "Types.h"
+
+#include <vector>
 
 // Fast move generation using bitboards
 namespace MoveGen {

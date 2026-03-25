@@ -1,17 +1,16 @@
 #include "MoveGen.h"
 
-#include <iostream>
-
 #include "Bitboard.h"
 #include "Logger.h"
 #include "Magic.h"
+
+#include <iostream>
 
 namespace MoveGen {
 
 // Add pawn moves for a single pawn
 template <Color Us>
-void generatePawnMoves(const Position& pos, std::vector<Move>& moves,
-                       Square from) {
+void generatePawnMoves(const Position& pos, std::vector<Move>& moves, Square from) {
   constexpr Color Them = (Us == WHITE) ? BLACK : WHITE;
   constexpr int Up = (Us == WHITE) ? 8 : -8;
   constexpr int PromotionRank = (Us == WHITE) ? RANK_7 : RANK_2;
@@ -66,10 +65,8 @@ void generatePawnMoves(const Position& pos, std::vector<Move>& moves,
 
 // Generate moves for a piece type
 template <PieceType Pt>
-void generatePieceMoves(const Position& pos, std::vector<Move>& moves, Color us,
-                        Bitboard pieces) {
-  Bitboard targets =
-      ~pos.pieces(us);  // Can move to empty squares or enemy pieces
+void generatePieceMoves(const Position& pos, std::vector<Move>& moves, Color us, Bitboard pieces) {
+  Bitboard targets = ~pos.pieces(us);  // Can move to empty squares or enemy pieces
   Bitboard occupied = pos.occupied();
 
   while (pieces) {
@@ -110,15 +107,13 @@ void generateCastling(const Position& pos, std::vector<Move>& moves) {
   // Kingside castling
   if (Us == WHITE && (rights & WHITE_OO)) {
     if (!(occupied & ((1ULL << F1) | (1ULL << G1)))) {
-      if (!pos.isAttacked(E1, Them) && !pos.isAttacked(F1, Them) &&
-          !pos.isAttacked(G1, Them)) {
+      if (!pos.isAttacked(E1, Them) && !pos.isAttacked(F1, Them) && !pos.isAttacked(G1, Them)) {
         moves.push_back(makeCastling(E1, G1));
       }
     }
   } else if (Us == BLACK && (rights & BLACK_OO)) {
     if (!(occupied & ((1ULL << F8) | (1ULL << G8)))) {
-      if (!pos.isAttacked(E8, Them) && !pos.isAttacked(F8, Them) &&
-          !pos.isAttacked(G8, Them)) {
+      if (!pos.isAttacked(E8, Them) && !pos.isAttacked(F8, Them) && !pos.isAttacked(G8, Them)) {
         moves.push_back(makeCastling(E8, G8));
       }
     }
@@ -127,15 +122,13 @@ void generateCastling(const Position& pos, std::vector<Move>& moves) {
   // Queenside castling
   if (Us == WHITE && (rights & WHITE_OOO)) {
     if (!(occupied & ((1ULL << B1) | (1ULL << C1) | (1ULL << D1)))) {
-      if (!pos.isAttacked(E1, Them) && !pos.isAttacked(D1, Them) &&
-          !pos.isAttacked(C1, Them)) {
+      if (!pos.isAttacked(E1, Them) && !pos.isAttacked(D1, Them) && !pos.isAttacked(C1, Them)) {
         moves.push_back(makeCastling(E1, C1));
       }
     }
   } else if (Us == BLACK && (rights & BLACK_OOO)) {
     if (!(occupied & ((1ULL << B8) | (1ULL << C8) | (1ULL << D8)))) {
-      if (!pos.isAttacked(E8, Them) && !pos.isAttacked(D8, Them) &&
-          !pos.isAttacked(C8, Them)) {
+      if (!pos.isAttacked(E8, Them) && !pos.isAttacked(D8, Them) && !pos.isAttacked(C8, Them)) {
         moves.push_back(makeCastling(E8, C8));
       }
     }
@@ -194,9 +187,8 @@ bool isLegal(Position& pos, Move move) {
   Square to = toSquare(move);
   Piece captured = pos.pieceAt(to);
   if (captured != NO_PIECE && typeOf(captured) == KING) {
-    Logger::getInstance().error(
-        "Illegal position detected: move " + moveToString(move) +
-        " captures the opponent's king (opponent was left in check)");
+    Logger::getInstance().error("Illegal position detected: move " + moveToString(move) +
+                                " captures the opponent's king (opponent was left in check)");
     return false;
   }
 

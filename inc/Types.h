@@ -134,20 +134,34 @@ constexpr int RANK_1 = 0, RANK_2 = 1, RANK_3 = 2, RANK_4 = 3;
 constexpr int RANK_5 = 4, RANK_6 = 5, RANK_7 = 6, RANK_8 = 7;
 
 // Utility functions
-constexpr Square makeSquare(int file, int rank) { return rank * 8 + file; }
+constexpr Square makeSquare(int file, int rank) {
+  return rank * 8 + file;
+}
 
-constexpr int fileOf(Square sq) { return sq & 7; }
+constexpr int fileOf(Square sq) {
+  return sq & 7;
+}
 
-constexpr int rankOf(Square sq) { return sq >> 3; }
+constexpr int rankOf(Square sq) {
+  return sq >> 3;
+}
 
-constexpr Color operator~(Color c) { return Color(c ^ 1); }
+constexpr Color operator~(Color c) {
+  return Color(c ^ 1);
+}
 
-constexpr Bitboard fileBB(int file) { return 0x0101010101010101ULL << file; }
+constexpr Bitboard fileBB(int file) {
+  return 0x0101010101010101ULL << file;
+}
 
-constexpr Bitboard rankBB(int rank) { return 0xFFULL << (rank * 8); }
+constexpr Bitboard rankBB(int rank) {
+  return 0xFFULL << (rank * 8);
+}
 
 // Move construction and extraction
-constexpr Move makeMove(Square from, Square to) { return (to << 6) | from; }
+constexpr Move makeMove(Square from, Square to) {
+  return (to << 6) | from;
+}
 
 constexpr Move makePromotion(Square from, Square to, PieceType promoPiece) {
   return PROMOTION | ((promoPiece - KNIGHT) << 12) | (to << 6) | from;
@@ -161,11 +175,17 @@ constexpr Move makeCastling(Square from, Square to) {
   return CASTLING | (to << 6) | from;
 }
 
-constexpr Square fromSquare(Move m) { return m & 0x3F; }
+constexpr Square fromSquare(Move m) {
+  return m & 0x3F;
+}
 
-constexpr Square toSquare(Move m) { return (m >> 6) & 0x3F; }
+constexpr Square toSquare(Move m) {
+  return (m >> 6) & 0x3F;
+}
 
-constexpr int moveType(Move m) { return m & (3 << 14); }
+constexpr int moveType(Move m) {
+  return m & (3 << 14);
+}
 
 constexpr PieceType promotionType(Move m) {
   return PieceType(((m >> 12) & 3) + KNIGHT);
@@ -188,8 +208,7 @@ inline Square stringToSquare(const std::string& str) {
 }
 
 inline std::string moveToString(Move m) {
-  std::string result =
-      squareToString(fromSquare(m)) + squareToString(toSquare(m));
+  std::string result = squareToString(fromSquare(m)) + squareToString(toSquare(m));
   if (moveType(m) == PROMOTION) {
     const char* pieces = "nbrq";
     result += pieces[promotionType(m) - KNIGHT];
@@ -198,15 +217,21 @@ inline std::string moveToString(Move m) {
 }
 
 // Piece functions
-constexpr Piece makePiece(Color c, PieceType pt) { return Piece(c * 6 + pt); }
+constexpr Piece makePiece(Color c, PieceType pt) {
+  return Piece(c * 6 + pt);
+}
 
-constexpr Color colorOf(Piece pc) { return Color(pc / 6); }
+constexpr Color colorOf(Piece pc) {
+  return Color(pc / 6);
+}
 
-constexpr PieceType typeOf(Piece pc) { return PieceType(pc % 6); }
+constexpr PieceType typeOf(Piece pc) {
+  return PieceType(pc % 6);
+}
 
 // Move with cached scoring data for move ordering
 struct ScoredMove {
   Move move;
-  int score;      // move ordering score
-  int seeValue;   // cached SEE value (INT_MIN = not computed)
+  int score;     // move ordering score
+  int seeValue;  // cached SEE value (INT_MIN = not computed)
 };

@@ -1,12 +1,12 @@
 #pragma once
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
+#include "Game.h"
+#include "Types.h"
 
 #include <string>
 
-#include "Game.h"
-#include "Types.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 // SDL2-based GUI window for chess
 class Window {

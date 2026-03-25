@@ -1,19 +1,19 @@
 #include "AI.h"
 
-#include <algorithm>
-#include <cmath>
-#include <iostream>
-#include <limits>
-#include <fstream>
-#include <sstream>
-#include <random>
-
 #include "Bitboard.h"
 #include "Eval.h"
 #include "Logger.h"
 #include "MoveGen.h"
 #include "MovePicker.h"
 #include "Tablebase.h"
+
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <limits>
+#include <random>
+#include <sstream>
 
 // --- Static LMR table ---
 int AI::lmrTable[64][64] = {};
@@ -26,8 +26,7 @@ void AI::initLMR() {
         lmrTable[d][m] = 0;
       } else {
         // Logarithmic formula: deeper depth and later moves get more reduction
-        lmrTable[d][m] =
-            static_cast<int>(0.75 + std::log(d) * std::log(m) / 2.25);
+        lmrTable[d][m] = static_cast<int>(0.75 + std::log(d) * std::log(m) / 2.25);
       }
     }
   }
@@ -59,8 +58,7 @@ AI::AI(int depth)
 // Helper to get current time in milliseconds
 static uint64_t currentTimeMs() {
   using namespace std::chrono;
-  return duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
-      .count();
+  return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
 }
 
 bool AI::shouldStop() const {
@@ -99,8 +97,7 @@ void AI::loadOpeningBook(const std::string& filename) {
 
     Position bookPos;
     if (!bookPos.setFromFEN(fen)) {
-      std::cerr << "Warning: Invalid FEN in book line " << lineCount << ": "
-                << fen << std::endl;
+      std::cerr << "Warning: Invalid FEN in book line " << lineCount << ": " << fen << std::endl;
       continue;
     }
 
@@ -140,8 +137,7 @@ void AI::loadOpeningBook(const std::string& filename) {
   }
 
   std::ostringstream oss;
-  oss << "Loaded opening book with " << openingBook.size()
-      << " positions (AI at " << this << ")";
+  oss << "Loaded opening book with " << openingBook.size() << " positions (AI at " << this << ")";
   Logger::getInstance().info(oss.str());
 }
 
@@ -168,7 +164,9 @@ Move AI::probeOpeningBook(const Position& pos) {
   return bookMoves[dis(gen)];
 }
 
-bool AI::hasOpeningBook() const { return !openingBook.empty(); }
+bool AI::hasOpeningBook() const {
+  return !openingBook.empty();
+}
 
 bool AI::loadPolyglotBook(const std::string& filename) {
   return polyglotBook.load(filename);
@@ -178,7 +176,9 @@ Move AI::probePolyglotBook(const Position& pos) {
   return polyglotBook.probe(pos);
 }
 
-bool AI::hasPolyglotBook() const { return polyglotBook.isLoaded(); }
+bool AI::hasPolyglotBook() const {
+  return polyglotBook.isLoaded();
+}
 
 Move AI::findBestMove(Position& pos, int timeMs) {
   timeLimit = timeMs;
@@ -192,8 +192,7 @@ Move AI::findBestMove(Position& pos) {
   if (hasPolyglotBook()) {
     Move bookMove = probePolyglotBook(pos);
     if (bookMove != 0) {
-      std::cout << "info string Polyglot book move: " << moveToString(bookMove)
-                << std::endl;
+      std::cout << "info string Polyglot book move: " << moveToString(bookMove) << std::endl;
       return bookMove;
     }
   }
@@ -201,8 +200,7 @@ Move AI::findBestMove(Position& pos) {
   // Fall back to text opening book
   Move bookMove = probeOpeningBook(pos);
   if (bookMove != 0) {
-    std::cout << "info string Book move: " << moveToString(bookMove)
-              << std::endl;
+    std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
     return bookMove;
   }
 
@@ -212,15 +210,26 @@ Move AI::findBestMove(Position& pos) {
     if (tbResult.success && tbResult.bestMove != 0) {
       const char* wdlStr = "unknown";
       switch (tbResult.wdl) {
-        case TB_RESULT_WIN: wdlStr = "win"; break;
-        case TB_RESULT_CURSED_WIN: wdlStr = "cursed win"; break;
-        case TB_RESULT_DRAW: wdlStr = "draw"; break;
-        case TB_RESULT_BLESSED_LOSS: wdlStr = "blessed loss"; break;
-        case TB_RESULT_LOSS: wdlStr = "loss"; break;
-        default: break;
+        case TB_RESULT_WIN:
+          wdlStr = "win";
+          break;
+        case TB_RESULT_CURSED_WIN:
+          wdlStr = "cursed win";
+          break;
+        case TB_RESULT_DRAW:
+          wdlStr = "draw";
+          break;
+        case TB_RESULT_BLESSED_LOSS:
+          wdlStr = "blessed loss";
+          break;
+        case TB_RESULT_LOSS:
+          wdlStr = "loss";
+          break;
+        default:
+          break;
       }
-      std::cout << "info string Tablebase hit: " << wdlStr
-                << " (DTZ: " << tbResult.dtz << ")" << std::endl;
+      std::cout << "info string Tablebase hit: " << wdlStr << " (DTZ: " << tbResult.dtz << ")"
+                << std::endl;
       return tbResult.bestMove;
     }
   }
@@ -241,8 +250,7 @@ Move AI::findBestMove(Position& pos) {
   // Iterative deepening
   for (int currentDepth = 1; currentDepth <= depth; ++currentDepth) {
     if (shouldStop()) {
-      std::cout << "  Time limit reached, stopping at depth "
-                << (currentDepth - 1) << "\n";
+      std::cout << "  Time limit reached, stopping at depth " << (currentDepth - 1) << "\n";
       break;
     }
 
@@ -291,9 +299,7 @@ Move AI::findBestMove(Position& pos) {
     }
 
     // Re-search with wider window on aspiration failure
-    if (currentDepth >= 5 &&
-        (iterBestScore <= bestScore - 50 ||
-         iterBestScore >= bestScore + 50)) {
+    if (currentDepth >= 5 && (iterBestScore <= bestScore - 50 || iterBestScore >= bestScore + 50)) {
       std::cout << " [re-search " << moveToString(iterBestMove) << "]";
       alpha = std::numeric_limits<int>::min() + 1;
       beta = std::numeric_limits<int>::max() - 1;
@@ -306,16 +312,13 @@ Move AI::findBestMove(Position& pos) {
     bestMove = iterBestMove;
     bestScore = iterBestScore;
 
-    std::cout << "\n  Depth " << currentDepth
-              << " complete: " << moveToString(bestMove)
-              << " (score: " << bestScore << ", nodes: " << nodesSearched
-              << ", tt hits: " << ttHits << ")\n";
+    std::cout << "\n  Depth " << currentDepth << " complete: " << moveToString(bestMove)
+              << " (score: " << bestScore << ", nodes: " << nodesSearched << ", tt hits: " << ttHits
+              << ")\n";
   }
 
-  std::cout << "Best move: " << moveToString(bestMove)
-            << " (score: " << bestScore << ")\n";
-  std::cout << "Total nodes: " << nodesSearched << ", TT hits: " << ttHits
-            << "\n";
+  std::cout << "Best move: " << moveToString(bestMove) << " (score: " << bestScore << ")\n";
+  std::cout << "Total nodes: " << nodesSearched << ", TT hits: " << ttHits << "\n";
 
   return bestMove;
 }
@@ -323,8 +326,7 @@ Move AI::findBestMove(Position& pos) {
 // =============================================================================
 // negamax — the core search function with all 10 improvements
 // =============================================================================
-int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
-                Move excludedMove) {
+int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move excludedMove) {
   nodesSearched++;
 
   // Prefetch TT bucket early — cache line loads while we do draw detection
@@ -339,17 +341,18 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
   if (ply > 0) {
     if (pos.repetitionCount() >= 2 || pos.halfmoveClock() >= 100) {
       int contempt = 0;
-      int material = pos.materialCount(pos.sideToMove()) -
-                     pos.materialCount(~pos.sideToMove());
-      if (material > 200) contempt = -15;
-      else if (material < -200) contempt = 15;
+      int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
+      if (material > 200)
+        contempt = -15;
+      else if (material < -200)
+        contempt = 15;
       return contempt;
     }
   }
 
   // Syzygy WDL probe (depth >= 2, not root)
-  if (ply > 0 && depth >= 2 && Tablebase::available() &&
-      Tablebase::canProbe(pos) && pos.castlingRights() == 0) {
+  if (ply > 0 && depth >= 2 && Tablebase::available() && Tablebase::canProbe(pos) &&
+      pos.castlingRights() == 0) {
     TBResult wdl = Tablebase::probeWDL(pos);
     if (wdl != TB_RESULT_UNKNOWN) {
       int tbScore = Tablebase::wdlToScore(wdl, ply);
@@ -398,15 +401,12 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
 
   // [Improvement 4] Singular Extension
   int singularExtension = 0;
-  if (depth >= 8 && ttMove != 0 && excludedMove == 0 && !isPVNode &&
-      ttInfo.found && ttInfo.ttDepth >= depth - 3 &&
-      ttInfo.ttFlag != UPPERBOUND &&
+  if (depth >= 8 && ttMove != 0 && excludedMove == 0 && !isPVNode && ttInfo.found &&
+      ttInfo.ttDepth >= depth - 3 && ttInfo.ttFlag != UPPERBOUND &&
       std::abs(ttInfo.ttScore) < MATE_BOUND) {
     int singularBeta = ttInfo.ttScore - 2 * depth;
     int singularDepth = (depth - 1) / 2;
-    int singularScore =
-        negamax(pos, singularDepth, singularBeta - 1, singularBeta, ply,
-                ttMove);
+    int singularScore = negamax(pos, singularDepth, singularBeta - 1, singularBeta, ply, ttMove);
     if (singularScore < singularBeta) {
       singularExtension = 1;
     }
@@ -451,8 +451,7 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
   Move move;
   while ((move = picker.next()) != 0) {
     Square to = toSquare(move);
-    bool isCapture =
-        pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT;
+    bool isCapture = pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT;
     bool isPromotion = moveType(move) == PROMOTION;
     bool isKillerMove = isKiller(move, ply);
 
@@ -463,9 +462,8 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
     }
 
     // Late Move Pruning: skip late quiet moves at low depths
-    if (depth <= 3 &&
-        moveNum >= static_cast<int>(3 + depth * depth) &&
-        !isCapture && !isPromotion && !isKillerMove) {
+    if (depth <= 3 && moveNum >= static_cast<int>(3 + depth * depth) && !isCapture &&
+        !isPromotion && !isKillerMove) {
       continue;
     }
 
@@ -493,15 +491,14 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
     } else {
       int reduction = 0;
 
-      if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck &&
-          !isPromotion) {
+      if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck && !isPromotion) {
         // Base reduction from precomputed table
         reduction = lmrTable[std::min(depth, 63)][std::min(moveNum, 63)];
 
         // Adjustments:
-        if (isPVNode) reduction--;                    // Reduce less at PV
-        if (isKillerMove) reduction--;                // Reduce less for killers
-        if (move == cm) reduction--;                  // Reduce less for countermove
+        if (isPVNode) reduction--;      // Reduce less at PV
+        if (isKillerMove) reduction--;  // Reduce less for killers
+        if (move == cm) reduction--;    // Reduce less for countermove
 
         // [Improvement 7] History-based adjustment
         int histScore = historyTable[fromSquare(move)][toSquare(move)];
@@ -512,8 +509,7 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply,
       }
 
       // PVS: null-window search (possibly with reduction)
-      score =
-          -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
+      score = -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
 
       // Re-search at full depth if reduced search beat alpha
       if (score > alpha && reduction > 0) {
@@ -599,8 +595,7 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
   nodesSearched++;
 
   if (pos.repetitionCount() >= 2) {
-    int material = pos.materialCount(pos.sideToMove()) -
-                   pos.materialCount(~pos.sideToMove());
+    int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
     if (material > 200) return -15;
     if (material < -200) return 15;
     return 0;
@@ -638,9 +633,7 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     scoredCaptures.push_back(scoreMoveWithSEE(pos, m, 0, 0));
   }
   std::sort(scoredCaptures.begin(), scoredCaptures.end(),
-            [](const ScoredMove& a, const ScoredMove& b) {
-              return a.score > b.score;
-            });
+            [](const ScoredMove& a, const ScoredMove& b) { return a.score > b.score; });
 
   for (const ScoredMove& sm : scoredCaptures) {
     if (sm.seeValue != std::numeric_limits<int>::min() && sm.seeValue < 0) {
@@ -678,8 +671,7 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
 // =============================================================================
 // Move scoring (used for root move ordering and qsearch)
 // =============================================================================
-ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply,
-                                Move ttMove) {
+ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove) {
   ScoredMove sm;
   sm.move = move;
   sm.seeValue = std::numeric_limits<int>::min();
@@ -724,8 +716,7 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply,
     const auto& hist = pos.getHistory();
     if (hist.size() >= 2) {
       const auto& prevState = hist[hist.size() - 2];
-      if (from == toSquare(prevState.move) &&
-          to == fromSquare(prevState.move)) {
+      if (from == toSquare(prevState.move) && to == fromSquare(prevState.move)) {
         sm.score -= 3000;
       }
     }
@@ -738,18 +729,15 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply,
   return sm;
 }
 
-std::vector<ScoredMove> AI::orderMoves(Position& pos,
-                                       const std::vector<Move>& moves,
-                                       int ply, Move ttMove) {
+std::vector<ScoredMove> AI::orderMoves(Position& pos, const std::vector<Move>& moves, int ply,
+                                       Move ttMove) {
   std::vector<ScoredMove> scored;
   scored.reserve(moves.size());
   for (Move m : moves) {
     scored.push_back(scoreMoveWithSEE(pos, m, ply, ttMove));
   }
   std::sort(scored.begin(), scored.end(),
-            [](const ScoredMove& a, const ScoredMove& b) {
-              return a.score > b.score;
-            });
+            [](const ScoredMove& a, const ScoredMove& b) { return a.score > b.score; });
   return scored;
 }
 
@@ -761,8 +749,7 @@ void AI::updateHistory(Move move, int bonus) {
   Square to = toSquare(move);
 
   // Gravity-based aging: prevents scores from growing unbounded
-  historyTable[from][to] +=
-      bonus - historyTable[from][to] * std::abs(bonus) / 10000;
+  historyTable[from][to] += bonus - historyTable[from][to] * std::abs(bonus) / 10000;
 
   // Clamp
   if (historyTable[from][to] > 10000) {
@@ -788,8 +775,8 @@ bool AI::isKiller(Move move, int ply) const {
 // =============================================================================
 // [Improvement 9] Adaptive null move pruning
 // =============================================================================
-std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*/,
-                                          int beta, int ply) {
+std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*/, int beta,
+                                          int ply) {
   bool canDoNullMove = depth >= 3 && !pos.inCheck() && ply > 0;
 
   if (canDoNullMove) {
@@ -802,8 +789,7 @@ std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*
     int queens = BB::popCount(pos.pieces(us, QUEEN));
     int nonPawnPieces = knights + bishops + rooks + queens;
 
-    if (material <= 100 || nonPawnPieces == 0 ||
-        (nonPawnPieces == 1 && material < 500)) {
+    if (material <= 100 || nonPawnPieces == 0 || (nonPawnPieces == 1 && material < 500)) {
       canDoNullMove = false;
     }
   }
@@ -834,8 +820,7 @@ std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*
 // =============================================================================
 // [Improvement 10] Fix: futility pruning NOT at PV nodes
 // =============================================================================
-AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta,
-                               bool isPVNode) {
+AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode) {
   PruningResult result = {false, 0, false};
 
   if (pos.inCheck()) return result;
@@ -880,8 +865,8 @@ AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta,
 // =============================================================================
 // [Improvement 3+6] Multi-bucket TT with mate score adjustment
 // =============================================================================
-std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta,
-                               int ply, TTProbeInfo& info) {
+std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, int ply,
+                               TTProbeInfo& info) {
   size_t bucketIdx = hash % ttBucketCount;
   uint32_t key32 = static_cast<uint32_t>(hash >> 32);
   TTBucket& bucket = transpositionTable[bucketIdx];
@@ -896,8 +881,10 @@ std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta,
 
       // Mate score adjustment: convert from position-relative to ply-relative
       int score = entry.score;
-      if (score > MATE_BOUND) score -= ply;
-      else if (score < -MATE_BOUND) score += ply;
+      if (score > MATE_BOUND)
+        score -= ply;
+      else if (score < -MATE_BOUND)
+        score += ply;
       info.ttScore = static_cast<int16_t>(score);
 
       if (entry.depth >= depth) {
@@ -922,8 +909,8 @@ std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta,
   return std::nullopt;
 }
 
-void AI::storeTT(HashKey hash, int depth, int score, Move bestMove,
-                 int alphaOrig, int beta, int ply) {
+void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOrig, int beta,
+                 int ply) {
   size_t bucketIdx = hash % ttBucketCount;
   uint32_t key32 = static_cast<uint32_t>(hash >> 32);
   TTBucket& bucket = transpositionTable[bucketIdx];
@@ -933,8 +920,10 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove,
   // absolute distance, so subtract ply to get closer to MATE_SCORE.
   // A losing mate score (e.g., -MATE_SCORE + ply) must add ply (more negative).
   int adjScore = score;
-  if (adjScore > MATE_BOUND) adjScore -= ply;
-  else if (adjScore < -MATE_BOUND) adjScore += ply;
+  if (adjScore > MATE_BOUND)
+    adjScore -= ply;
+  else if (adjScore < -MATE_BOUND)
+    adjScore += ply;
 
   // Determine flag
   TTFlag flag;
@@ -976,8 +965,7 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove,
 
   TTEntry& target = bucket.entries[replaceIdx];
   target.key32 = key32;
-  target.score = static_cast<int16_t>(
-      std::max(std::min(adjScore, 32000), -32000));
+  target.score = static_cast<int16_t>(std::max(std::min(adjScore, 32000), -32000));
   target.bestMove = bestMove;
   target.depth = static_cast<int8_t>(std::min(depth, 127));
   target.setFlagAge(flag, ttAge);
@@ -990,6 +978,10 @@ bool AI::initTablebases(const std::string& path) {
   return Tablebase::init(path);
 }
 
-void AI::freeTablebases() { Tablebase::free(); }
+void AI::freeTablebases() {
+  Tablebase::free();
+}
 
-bool AI::hasTablebases() { return Tablebase::available(); }
+bool AI::hasTablebases() {
+  return Tablebase::available();
+}

@@ -1,15 +1,15 @@
-#include <gtest/gtest.h>
-
-#include <iostream>
-#include <sstream>
-#include <string>
-
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
 #include "UCI.h"
 #include "Zobrist.h"
+
+#include <iostream>
+#include <sstream>
+#include <string>
+
+#include <gtest/gtest.h>
 
 // Helper: Feed commands to UCI::loop() via stdin redirection,
 // capture everything written to stdout, return it as a string.
@@ -52,16 +52,13 @@ TEST_F(UCITest, UCIIdentification) {
   std::string output = runUCI("uci");
 
   // Must contain engine name
-  EXPECT_NE(output.find("id name"), std::string::npos)
-      << "Missing 'id name' in UCI output";
+  EXPECT_NE(output.find("id name"), std::string::npos) << "Missing 'id name' in UCI output";
 
   // Must contain author
-  EXPECT_NE(output.find("id author"), std::string::npos)
-      << "Missing 'id author' in UCI output";
+  EXPECT_NE(output.find("id author"), std::string::npos) << "Missing 'id author' in UCI output";
 
   // Must end the handshake with uciok
-  EXPECT_NE(output.find("uciok"), std::string::npos)
-      << "Missing 'uciok' in UCI output";
+  EXPECT_NE(output.find("uciok"), std::string::npos) << "Missing 'uciok' in UCI output";
 }
 
 // ---------- Test 2: isready responds readyok ----------
@@ -78,8 +75,7 @@ TEST_F(UCITest, PositionStartpos) {
   // The 'd' command outputs the FEN, which should be the starting FEN.
   std::string output = runUCI("position startpos\nd");
 
-  EXPECT_NE(output.find("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"),
-            std::string::npos)
+  EXPECT_NE(output.find("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"), std::string::npos)
       << "Position after 'position startpos' does not match starting FEN.\n"
       << "Output was: " << output;
 }
@@ -93,9 +89,8 @@ TEST_F(UCITest, PositionStartposWithMoves) {
   // After 1.e4 e5, the FEN should show pawns on e4 and e5, black to move
   // is wrong -- it should be white to move after two moves.
   // Expected FEN: rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq
-  EXPECT_NE(
-      output.find("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq"),
-      std::string::npos)
+  EXPECT_NE(output.find("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq"),
+            std::string::npos)
       << "Position after 'position startpos moves e2e4 e7e5' is incorrect.\n"
       << "Output was: " << output;
 }
@@ -103,13 +98,11 @@ TEST_F(UCITest, PositionStartposWithMoves) {
 // ---------- Test 5: Position FEN parsing ----------
 TEST_F(UCITest, PositionFEN) {
   // Set a specific FEN and verify it was loaded correctly.
-  const std::string fen =
-      "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2";
+  const std::string fen = "r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2";
   std::string output = runUCI("position fen " + fen + "\nd");
 
   // The display output should contain the piece placement from our FEN
-  EXPECT_NE(output.find("r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR"),
-            std::string::npos)
+  EXPECT_NE(output.find("r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR"), std::string::npos)
       << "Position FEN not correctly loaded.\nOutput was: " << output;
 }
 
@@ -162,8 +155,7 @@ TEST_F(UCITest, FullHandshakeSequence) {
 
   ASSERT_NE(uciokPos, std::string::npos) << "Missing 'uciok'";
   ASSERT_NE(readyokPos, std::string::npos) << "Missing 'readyok'";
-  EXPECT_LT(uciokPos, readyokPos)
-      << "'uciok' should appear before 'readyok' in the output";
+  EXPECT_LT(uciokPos, readyokPos) << "'uciok' should appear before 'readyok' in the output";
 }
 
 // ---------- Test 9: UCI options advertised ----------
@@ -189,9 +181,7 @@ TEST_F(UCITest, PositionFENWithMoves) {
       "d");
 
   // After 1.e4 from starting position, black to move
-  EXPECT_NE(
-      output.find("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq"),
-      std::string::npos)
+  EXPECT_NE(output.find("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq"), std::string::npos)
       << "Position FEN with moves not correctly applied.\n"
       << "Output was: " << output;
 }
@@ -204,8 +194,7 @@ TEST_F(UCITest, UCINewGameResetsPosition) {
       "ucinewgame\n"
       "d");
 
-  EXPECT_NE(output.find("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"),
-            std::string::npos)
+  EXPECT_NE(output.find("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq"), std::string::npos)
       << "Position not reset after ucinewgame.\nOutput was: " << output;
 }
 

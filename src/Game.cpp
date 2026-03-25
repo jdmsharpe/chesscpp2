@@ -1,12 +1,14 @@
 #include "Game.h"
 
+#include "MoveGen.h"
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 
-#include "MoveGen.h"
-
-Game::Game(GameMode mode) : mode(mode), result(IN_PROGRESS) { reset(); }
+Game::Game(GameMode mode) : mode(mode), result(IN_PROGRESS) {
+  reset();
+}
 
 void Game::reset() {
   position = Position();
@@ -22,8 +24,7 @@ bool Game::makeMove(const std::string& moveStr) {
 bool Game::makeMove(Move move) {
   // Check if move is legal
   std::vector<Move> legalMoves = MoveGen::generateLegalMoves(position);
-  if (std::find(legalMoves.begin(), legalMoves.end(), move) ==
-      legalMoves.end()) {
+  if (std::find(legalMoves.begin(), legalMoves.end(), move) == legalMoves.end()) {
     return false;
   }
 
@@ -90,7 +91,9 @@ Move Game::parseMove(const std::string& moveStr) {
   return ::makeMove(from, to);  // Use global scope to avoid name conflict
 }
 
-Move Game::getAIMove() { return ai.findBestMove(position); }
+Move Game::getAIMove() {
+  return ai.findBestMove(position);
+}
 
 void Game::updateGameResult() {
   std::vector<Move> legalMoves = MoveGen::generateLegalMoves(position);
@@ -132,7 +135,9 @@ bool Game::loadFEN(const std::string& fen) {
   return false;
 }
 
-std::string Game::saveFEN() const { return position.getFEN(); }
+std::string Game::saveFEN() const {
+  return position.getFEN();
+}
 
 bool Game::loadFromFile(const std::string& filename) {
   std::ifstream file(filename);

@@ -1,14 +1,14 @@
 #include "Position.h"
 
-#include <algorithm>
-#include <cctype>
-#include <iostream>
-#include <sstream>
-
 #include "Bitboard.h"
 #include "Logger.h"
 #include "Magic.h"
 #include "Zobrist.h"
+
+#include <algorithm>
+#include <cctype>
+#include <iostream>
+#include <sstream>
 
 Position::Position() {
   clear();
@@ -230,7 +230,9 @@ std::string Position::getFEN() const {
   return oss.str();
 }
 
-Piece Position::pieceAt(Square sq) const { return board[sq]; }
+Piece Position::pieceAt(Square sq) const {
+  return board[sq];
+}
 
 void Position::makeMove(Move move) {
   // Save state for unmake
@@ -476,8 +478,7 @@ void Position::unmakeNullMove() {
 bool Position::inCheck() const {
   Bitboard kings = pieces(stm, KING);
   if (!kings) {
-    Logger::getInstance().error(
-        "Illegal position detected: no king found for side to move");
+    Logger::getInstance().error("Illegal position detected: no king found for side to move");
     return false;
   }
   return isAttacked(BB::lsb(kings), ~stm);
@@ -485,8 +486,7 @@ bool Position::inCheck() const {
 
 bool Position::isAttacked(Square sq, Color attackerColor) const {
   // Pawn attacks
-  if (BB::pawnAttacks(~attackerColor, sq) & pieces(attackerColor, PAWN))
-    return true;
+  if (BB::pawnAttacks(~attackerColor, sq) & pieces(attackerColor, PAWN)) return true;
 
   // Knight attacks
   if (BB::knightAttacks(sq) & pieces(attackerColor, KNIGHT)) return true;
@@ -502,8 +502,7 @@ bool Position::isAttacked(Square sq, Color attackerColor) const {
     return true;
 
   // Rook/Queen attacks
-  if (Magic::rookAttacks(sq, occ) &
-      (pieces(attackerColor, ROOK) | pieces(attackerColor, QUEEN)))
+  if (Magic::rookAttacks(sq, occ) & (pieces(attackerColor, ROOK) | pieces(attackerColor, QUEEN)))
     return true;
 
   return false;
@@ -518,20 +517,19 @@ Bitboard Position::attacksTo(Square sq) const {
   attacks |= BB::pawnAttacks(BLACK, sq) & pieces(WHITE, PAWN);
 
   // Knights
-  attacks |=
-      BB::knightAttacks(sq) & (pieces(WHITE, KNIGHT) | pieces(BLACK, KNIGHT));
+  attacks |= BB::knightAttacks(sq) & (pieces(WHITE, KNIGHT) | pieces(BLACK, KNIGHT));
 
   // Kings
   attacks |= BB::kingAttacks(sq) & (pieces(WHITE, KING) | pieces(BLACK, KING));
 
   // Bishops and queens
-  Bitboard bishopAttackers = pieces(WHITE, BISHOP) | pieces(BLACK, BISHOP) |
-                             pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN);
+  Bitboard bishopAttackers =
+      pieces(WHITE, BISHOP) | pieces(BLACK, BISHOP) | pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN);
   attacks |= Magic::bishopAttacks(sq, occ) & bishopAttackers;
 
   // Rooks and queens
-  Bitboard rookAttackers = pieces(WHITE, ROOK) | pieces(BLACK, ROOK) |
-                           pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN);
+  Bitboard rookAttackers =
+      pieces(WHITE, ROOK) | pieces(BLACK, ROOK) | pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN);
   attacks |= Magic::rookAttacks(sq, occ) & rookAttackers;
 
   return attacks;
@@ -567,15 +565,13 @@ void Position::print() const {
 }
 
 // X-ray attacks - attacks through blocking pieces
-Bitboard Position::xrayRookAttacks(Square sq, Bitboard blockers,
-                                   Bitboard occ) const {
+Bitboard Position::xrayRookAttacks(Square sq, Bitboard blockers, Bitboard occ) const {
   Bitboard attacks = Magic::rookAttacks(sq, occ);
   blockers &= attacks;
   return attacks ^ Magic::rookAttacks(sq, occ ^ blockers);
 }
 
-Bitboard Position::xrayBishopAttacks(Square sq, Bitboard blockers,
-                                     Bitboard occ) const {
+Bitboard Position::xrayBishopAttacks(Square sq, Bitboard blockers, Bitboard occ) const {
   Bitboard attacks = Magic::bishopAttacks(sq, occ);
   blockers &= attacks;
   return attacks ^ Magic::bishopAttacks(sq, occ ^ blockers);
@@ -645,9 +641,8 @@ int Position::see(Move move) const {
   int depth = 0;
 
   Bitboard mayXray =
-      (pieces(WHITE, PAWN) | pieces(BLACK, PAWN) | pieces(WHITE, BISHOP) |
-       pieces(BLACK, BISHOP) | pieces(WHITE, ROOK) | pieces(BLACK, ROOK) |
-       pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN));
+      (pieces(WHITE, PAWN) | pieces(BLACK, PAWN) | pieces(WHITE, BISHOP) | pieces(BLACK, BISHOP) |
+       pieces(WHITE, ROOK) | pieces(BLACK, ROOK) | pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN));
 
   Bitboard fromSet = BB::squareBB(from);
   Bitboard occ = occupied();
@@ -674,13 +669,11 @@ int Position::see(Move move) const {
 
     // Add X-ray attackers if piece was blocking
     if (fromSet & mayXray) {
-      attackers |= (Magic::bishopAttacks(to, occ) &
-                    (pieces(WHITE, BISHOP) | pieces(BLACK, BISHOP) |
-                     pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN))) &
+      attackers |= (Magic::bishopAttacks(to, occ) & (pieces(WHITE, BISHOP) | pieces(BLACK, BISHOP) |
+                                                     pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN))) &
                    occ;
-      attackers |= (Magic::rookAttacks(to, occ) &
-                    (pieces(WHITE, ROOK) | pieces(BLACK, ROOK) |
-                     pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN))) &
+      attackers |= (Magic::rookAttacks(to, occ) & (pieces(WHITE, ROOK) | pieces(BLACK, ROOK) |
+                                                   pieces(WHITE, QUEEN) | pieces(BLACK, QUEEN))) &
                    occ;
     }
 
@@ -711,7 +704,6 @@ int Position::see(Move move) const {
   return gain[0];
 }
 
-
 // Count how many times the current position has occurred in the game history
 int Position::repetitionCount() const {
   int count = 1;  // Count current position
@@ -721,7 +713,8 @@ int Position::repetitionCount() const {
   // resets (captures/pawn moves) since those positions can't repeat.
   int limit = std::min(static_cast<int>(history.size()), halfmoves);
 
-  for (int i = static_cast<int>(history.size()) - 2; i >= static_cast<int>(history.size()) - limit; i -= 2) {
+  for (int i = static_cast<int>(history.size()) - 2; i >= static_cast<int>(history.size()) - limit;
+       i -= 2) {
     if (i >= 0 && history[i].hash == positionHash) {
       count++;
     }
@@ -750,8 +743,7 @@ bool Position::isInsufficientMaterial() const {
   int blackQueens = BB::popCount(pieces(BLACK, QUEEN));
 
   // Any pawns, rooks, or queens = sufficient material
-  if (whitePawns || blackPawns || whiteRooks || blackRooks ||
-      whiteQueens || blackQueens) {
+  if (whitePawns || blackPawns || whiteRooks || blackRooks || whiteQueens || blackQueens) {
     return false;
   }
 
@@ -764,14 +756,12 @@ bool Position::isInsufficientMaterial() const {
   }
 
   // K+minor vs K (KN vs K, KB vs K)
-  if ((whiteMinor == 1 && blackMinor == 0) ||
-      (whiteMinor == 0 && blackMinor == 1)) {
+  if ((whiteMinor == 1 && blackMinor == 0) || (whiteMinor == 0 && blackMinor == 1)) {
     return true;
   }
 
   // K+B vs K+B with bishops on same color
-  if (whiteKnights == 0 && blackKnights == 0 &&
-      whiteBishops == 1 && blackBishops == 1) {
+  if (whiteKnights == 0 && blackKnights == 0 && whiteBishops == 1 && blackBishops == 1) {
     // Check if bishops are on same color squares
     Bitboard whiteBishopBB = pieces(WHITE, BISHOP);
     Bitboard blackBishopBB = pieces(BLACK, BISHOP);

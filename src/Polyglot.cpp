@@ -1,11 +1,11 @@
 #include "Polyglot.h"
 
+#include "Logger.h"
+#include "MoveGen.h"
+
 #include <algorithm>
 #include <fstream>
 #include <random>
-
-#include "Logger.h"
-#include "MoveGen.h"
 
 // Polyglot random numbers - these are standardized and must match exactly
 // Source: http://hgm.nubati.net/book_format.html
@@ -214,13 +214,13 @@ const uint64_t PolyglotBook::Random64[781] = {
 // clang-format on
 
 // Castling rights random numbers (index: 0=wK, 1=wQ, 2=bK, 3=bQ)
-const uint64_t PolyglotBook::RandomCastle[4] = {
-    Random64[768], Random64[769], Random64[770], Random64[771]};
+const uint64_t PolyglotBook::RandomCastle[4] = {Random64[768], Random64[769], Random64[770],
+                                                Random64[771]};
 
 // En passant file random numbers (index: file A-H = 0-7)
-const uint64_t PolyglotBook::RandomEnPassant[8] = {
-    Random64[772], Random64[773], Random64[774], Random64[775],
-    Random64[776], Random64[777], Random64[778], Random64[779]};
+const uint64_t PolyglotBook::RandomEnPassant[8] = {Random64[772], Random64[773], Random64[774],
+                                                   Random64[775], Random64[776], Random64[777],
+                                                   Random64[778], Random64[779]};
 
 // Side to move (white = 0, black = this value)
 const uint64_t PolyglotBook::RandomTurn = Random64[780];
@@ -258,21 +258,17 @@ bool PolyglotBook::load(const std::string& filename) {
 
   // Sort by key for binary search
   std::sort(entries.begin(), entries.end(),
-            [](const PolyglotEntry& a, const PolyglotEntry& b) {
-              return a.key < b.key;
-            });
+            [](const PolyglotEntry& a, const PolyglotEntry& b) { return a.key < b.key; });
 
-  Logger::getInstance().info("Loaded Polyglot book with " +
-                             std::to_string(entries.size()) + " entries from " +
-                             filename);
+  Logger::getInstance().info("Loaded Polyglot book with " + std::to_string(entries.size()) +
+                             " entries from " + filename);
   return !entries.empty();
 }
 
 std::pair<size_t, size_t> PolyglotBook::findEntries(uint64_t key) const {
   // Binary search for first entry with this key
-  auto lower =
-      std::lower_bound(entries.begin(), entries.end(), key,
-                       [](const PolyglotEntry& e, uint64_t k) { return e.key < k; });
+  auto lower = std::lower_bound(entries.begin(), entries.end(), key,
+                                [](const PolyglotEntry& e, uint64_t k) { return e.key < k; });
 
   if (lower == entries.end() || lower->key != key) {
     return {0, 0};  // Not found
@@ -303,22 +299,22 @@ uint64_t PolyglotBook::computeHash(const Position& pos) {
       // Map our piece types to Polyglot indices
       switch (pt) {
         case PAWN:
-          polyPiece = (c == BLACK) ? 0 : 1;   // bp=0, wp=1
+          polyPiece = (c == BLACK) ? 0 : 1;  // bp=0, wp=1
           break;
         case KNIGHT:
-          polyPiece = (c == BLACK) ? 2 : 3;   // bn=2, wn=3
+          polyPiece = (c == BLACK) ? 2 : 3;  // bn=2, wn=3
           break;
         case BISHOP:
-          polyPiece = (c == BLACK) ? 4 : 5;   // bb=4, wb=5
+          polyPiece = (c == BLACK) ? 4 : 5;  // bb=4, wb=5
           break;
         case ROOK:
-          polyPiece = (c == BLACK) ? 6 : 7;   // br=6, wr=7
+          polyPiece = (c == BLACK) ? 6 : 7;  // br=6, wr=7
           break;
         case QUEEN:
-          polyPiece = (c == BLACK) ? 8 : 9;   // bq=8, wq=9
+          polyPiece = (c == BLACK) ? 8 : 9;  // bq=8, wq=9
           break;
         case KING:
-          polyPiece = (c == BLACK) ? 10 : 11; // bk=10, wk=11
+          polyPiece = (c == BLACK) ? 10 : 11;  // bk=10, wk=11
           break;
         default:
           break;
@@ -334,10 +330,10 @@ uint64_t PolyglotBook::computeHash(const Position& pos) {
 
   // Castling rights
   int castling = pos.castlingRights();
-  if (castling & 1) hash ^= RandomCastle[0];   // White kingside
-  if (castling & 2) hash ^= RandomCastle[1];   // White queenside
-  if (castling & 4) hash ^= RandomCastle[2];   // Black kingside
-  if (castling & 8) hash ^= RandomCastle[3];   // Black queenside
+  if (castling & 1) hash ^= RandomCastle[0];  // White kingside
+  if (castling & 2) hash ^= RandomCastle[1];  // White queenside
+  if (castling & 4) hash ^= RandomCastle[2];  // Black kingside
+  if (castling & 8) hash ^= RandomCastle[3];  // Black queenside
 
   // En passant (only if there's actually a pawn that can capture)
   Square ep = pos.enPassantSquare();
@@ -486,8 +482,7 @@ Move PolyglotBook::probe(const Position& pos) const {
   return moves.back().first;
 }
 
-std::vector<std::pair<Move, uint16_t>> PolyglotBook::getMoves(
-    const Position& pos) const {
+std::vector<std::pair<Move, uint16_t>> PolyglotBook::getMoves(const Position& pos) const {
   std::vector<std::pair<Move, uint16_t>> result;
 
   if (entries.empty()) return result;

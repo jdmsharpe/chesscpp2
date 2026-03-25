@@ -1,19 +1,18 @@
 #include "Tablebase.h"
 
-#include <iostream>
-
 #include "Bitboard.h"
 #include "Logger.h"
 #include "Magic.h"
 #include "MoveGen.h"
+
+#include <iostream>
 
 // Define attack functions before including Fathom headers
 // This allows Fathom to use our existing optimized attack generation
 #define TB_KING_ATTACKS(sq) BB::kingAttacks(static_cast<Square>(sq))
 #define TB_KNIGHT_ATTACKS(sq) BB::knightAttacks(static_cast<Square>(sq))
 #define TB_ROOK_ATTACKS(sq, occ) Magic::rookAttacks(static_cast<Square>(sq), occ)
-#define TB_BISHOP_ATTACKS(sq, occ) \
-  Magic::bishopAttacks(static_cast<Square>(sq), occ)
+#define TB_BISHOP_ATTACKS(sq, occ) Magic::bishopAttacks(static_cast<Square>(sq), occ)
 #define TB_PAWN_ATTACKS(sq, color) \
   BB::pawnAttacks(static_cast<Color>(color), static_cast<Square>(sq))
 
@@ -39,12 +38,10 @@ bool Tablebase::init(const std::string& path) {
     initialized = true;
     largestPieces = TB_LARGEST;
     if (largestPieces > 0) {
-      Logger::getInstance().info("Tablebase: Loaded " +
-                                 std::to_string(largestPieces) +
+      Logger::getInstance().info("Tablebase: Loaded " + std::to_string(largestPieces) +
                                  "-piece tablebases from " + path);
     } else {
-      Logger::getInstance().warning(
-          "Tablebase: No tablebase files found in " + path);
+      Logger::getInstance().warning("Tablebase: No tablebase files found in " + path);
     }
   } else {
     Logger::getInstance().error("Tablebase: Failed to initialize from " + path);
@@ -60,9 +57,13 @@ void Tablebase::free() {
   }
 }
 
-bool Tablebase::available() { return initialized && largestPieces > 0; }
+bool Tablebase::available() {
+  return initialized && largestPieces > 0;
+}
 
-int Tablebase::maxPieces() { return largestPieces; }
+int Tablebase::maxPieces() {
+  return largestPieces;
+}
 
 bool Tablebase::canProbe(const Position& pos) {
   if (!available()) return false;
@@ -99,10 +100,10 @@ TBResult Tablebase::probeWDL(const Position& pos) {
 
   bool turn = (pos.sideToMove() == WHITE);
 
-  unsigned result = tb_probe_wdl(white, black, kings, queens, rooks, bishops,
-                                 knights, pawns, 0,  // rule50
-                                 0,                  // castling
-                                 ep, turn);
+  unsigned result =
+      tb_probe_wdl(white, black, kings, queens, rooks, bishops, knights, pawns, 0,  // rule50
+                   0,                                                               // castling
+                   ep, turn);
 
   if (result == TB_RESULT_FAILED) {
     return TB_RESULT_UNKNOWN;
@@ -141,8 +142,7 @@ TBProbeResult Tablebase::probeRoot(const Position& pos) {
   bool turn = (pos.sideToMove() == WHITE);
 
   // Probe root - this gives us the best move according to DTZ
-  unsigned tbResult = tb_probe_root(white, black, kings, queens, rooks, bishops,
-                                    knights, pawns,
+  unsigned tbResult = tb_probe_root(white, black, kings, queens, rooks, bishops, knights, pawns,
                                     pos.halfmoveClock(),  // rule50
                                     0,                    // castling
                                     ep, turn,
@@ -183,8 +183,7 @@ TBProbeResult Tablebase::probeRoot(const Position& pos) {
   std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
 
   for (Move m : legalMoves) {
-    if (fromSquare(m) == static_cast<Square>(from) &&
-        toSquare(m) == static_cast<Square>(to)) {
+    if (fromSquare(m) == static_cast<Square>(from) && toSquare(m) == static_cast<Square>(to)) {
       // Check promotion type if applicable
       if (promotes != TB_PROMOTES_NONE) {
         if (moveType(m) != PROMOTION) continue;

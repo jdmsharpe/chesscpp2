@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
-
 #include "Types.h"
+
+#include <string>
 
 // Bitboard namespace with core operations
 namespace BB {
@@ -30,24 +30,36 @@ constexpr Bitboard RANK_7_BB = RANK_1_BB << 48;
 constexpr Bitboard RANK_8_BB = RANK_1_BB << 56;
 
 // Set/clear/test bits
-constexpr Bitboard squareBB(Square sq) { return 1ULL << sq; }
+constexpr Bitboard squareBB(Square sq) {
+  return 1ULL << sq;
+}
 
-constexpr bool testBit(Bitboard bb, Square sq) { return bb & squareBB(sq); }
+constexpr bool testBit(Bitboard bb, Square sq) {
+  return bb & squareBB(sq);
+}
 
-constexpr Bitboard setBit(Bitboard bb, Square sq) { return bb | squareBB(sq); }
+constexpr Bitboard setBit(Bitboard bb, Square sq) {
+  return bb | squareBB(sq);
+}
 
 constexpr Bitboard clearBit(Bitboard bb, Square sq) {
   return bb & ~squareBB(sq);
 }
 
 // Population count (number of set bits)
-inline int popCount(Bitboard bb) { return __builtin_popcountll(bb); }
+inline int popCount(Bitboard bb) {
+  return __builtin_popcountll(bb);
+}
 
 // Find least significant bit (LSB)
-inline Square lsb(Bitboard bb) { return Square(__builtin_ctzll(bb)); }
+inline Square lsb(Bitboard bb) {
+  return Square(__builtin_ctzll(bb));
+}
 
 // Find most significant bit (MSB)
-inline Square msb(Bitboard bb) { return Square(63 - __builtin_clzll(bb)); }
+inline Square msb(Bitboard bb) {
+  return Square(63 - __builtin_clzll(bb));
+}
 
 // Pop LSB and return it
 inline Square popLsb(Bitboard& bb) {
@@ -83,9 +95,13 @@ constexpr Bitboard pawnAttacks(Bitboard bb) {
 }
 
 // File and rank helpers
-constexpr Bitboard fileBB(Square sq) { return FILE_A_BB << fileOf(sq); }
+constexpr Bitboard fileBB(Square sq) {
+  return FILE_A_BB << fileOf(sq);
+}
 
-constexpr Bitboard rankBB(Square sq) { return RANK_1_BB << (rankOf(sq) * 8); }
+constexpr Bitboard rankBB(Square sq) {
+  return RANK_1_BB << (rankOf(sq) * 8);
+}
 
 // Print bitboard (for debugging)
 std::string toString(Bitboard bb);
@@ -105,10 +121,16 @@ inline Bitboard betweenBB(Square sq1, Square sq2) {
 }
 
 // Pawn attack lookup
-inline Bitboard pawnAttacks(Color c, Square sq) { return PawnAttacks[c][sq]; }
+inline Bitboard pawnAttacks(Color c, Square sq) {
+  return PawnAttacks[c][sq];
+}
 
-inline Bitboard knightAttacks(Square sq) { return KnightAttacks[sq]; }
+inline Bitboard knightAttacks(Square sq) {
+  return KnightAttacks[sq];
+}
 
-inline Bitboard kingAttacks(Square sq) { return KingAttacks[sq]; }
+inline Bitboard kingAttacks(Square sq) {
+  return KingAttacks[sq];
+}
 
 }  // namespace BB

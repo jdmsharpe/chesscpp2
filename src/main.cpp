@@ -1,6 +1,3 @@
-#include <iostream>
-#include <string>
-
 #include "Bitboard.h"
 #include "Game.h"
 #include "Magic.h"
@@ -9,6 +6,9 @@
 #include "UCI.h"
 #include "Window.h"
 #include "Zobrist.h"
+
+#include <iostream>
+#include <string>
 
 void printUsage() {
   std::cout << "Chess++ with Bitboards\n";
@@ -46,8 +46,7 @@ void runConsoleMode(Game& game, int aiDepth) {
   std::cout << "\nConsole Chess Mode\n";
   std::cout << "==================\n";
   std::cout << "Enter moves in UCI format (e.g., e2e4, e7e8q for promotion)\n";
-  std::cout
-      << "Type 'quit' to exit, 'fen' to show FEN, 'board' to show board\n\n";
+  std::cout << "Type 'quit' to exit, 'fen' to show FEN, 'board' to show board\n\n";
 
   game.getPosition().print();
 
@@ -102,8 +101,7 @@ void runConsoleMode(Game& game, int aiDepth) {
       std::cout << "Invalid move! Try again.\n";
 
       // Show legal moves
-      std::vector<Move> legalMoves =
-          MoveGen::generateLegalMoves(game.getPosition());
+      std::vector<Move> legalMoves = MoveGen::generateLegalMoves(game.getPosition());
       std::cout << "Legal moves: ";
       for (Move m : legalMoves) {
         std::cout << moveToString(m) << " ";

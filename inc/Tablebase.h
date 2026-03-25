@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
-
 #include "Position.h"
 #include "Types.h"
+
+#include <string>
 
 // Syzygy tablebase result values
 enum TBResult {
@@ -17,10 +17,10 @@ enum TBResult {
 
 // Tablebase probe result with move info
 struct TBProbeResult {
-  TBResult wdl;      // Win/Draw/Loss result
-  int dtz;           // Distance to zeroing move (pawn push or capture)
-  Move bestMove;     // Best move according to tablebase
-  bool success;      // Whether probe succeeded
+  TBResult wdl;   // Win/Draw/Loss result
+  int dtz;        // Distance to zeroing move (pawn push or capture)
+  Move bestMove;  // Best move according to tablebase
+  bool success;   // Whether probe succeeded
 };
 
 class Tablebase {

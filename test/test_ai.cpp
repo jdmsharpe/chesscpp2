@@ -1,14 +1,14 @@
-#include <gtest/gtest.h>
-
-#include <chrono>
-#include <vector>
-
 #include "AI.h"
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
 #include "Zobrist.h"
+
+#include <chrono>
+#include <vector>
+
+#include <gtest/gtest.h>
 
 class AITest : public ::testing::Test {
  protected:
@@ -35,7 +35,6 @@ class AITest : public ::testing::Test {
     pos.unmakeMove();
     return inCheck && replies.empty();
   }
-
 };
 
 // ---------- Test 1: Mate in 1 ----------
@@ -51,8 +50,7 @@ TEST_F(AITest, FindsMateInOne) {
 
   EXPECT_NE(best, 0);
   EXPECT_TRUE(isLegalMove(pos, best));
-  EXPECT_TRUE(isCheckmate(pos, best))
-      << "Expected a mating move but got " << moveToString(best);
+  EXPECT_TRUE(isCheckmate(pos, best)) << "Expected a mating move but got " << moveToString(best);
 }
 
 // ---------- Test 2: Mate in 2 ----------
@@ -61,8 +59,7 @@ TEST_F(AITest, FindsMateInTwo) {
   // 1. Qxf7+ Kh8 2. Qf8# (or similar).
   // This is a classic Qxf7+ / Qf8# pattern.
   Position pos;
-  ASSERT_TRUE(
-      pos.setFromFEN("5rk1/ppp2ppp/3p2b1/2B5/4P3/7Q/PPP2PPP/4K2R w K - 0 1"));
+  ASSERT_TRUE(pos.setFromFEN("5rk1/ppp2ppp/3p2b1/2B5/4P3/7Q/PPP2PPP/4K2R w K - 0 1"));
 
   // Need depth 4+ to see mate in 2 (2 moves each side = 4 plies)
   AI ai(5);
@@ -83,8 +80,8 @@ TEST_F(AITest, FindsMateInTwo) {
   // Mate-in-2 solutions typically start with a check
   // But we mainly care the engine finds the winning line.
   // Check score is mate-level.
-  EXPECT_TRUE(givesCheck || true)
-      << "Move " << moveToString(best) << " should lead to a forced win";
+  EXPECT_TRUE(givesCheck || true) << "Move " << moveToString(best)
+                                  << " should lead to a forced win";
 }
 
 // ---------- Test 3: Captures hanging piece ----------
@@ -92,8 +89,7 @@ TEST_F(AITest, CapturesHangingPiece) {
   // Black queen is hanging on d5, undefended. White knight on f3 can take it.
   // White has a clear Nxd5 winning a free queen.
   Position pos;
-  ASSERT_TRUE(
-      pos.setFromFEN("r1b1kbnr/pppppppp/2n5/3q4/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1"));
+  ASSERT_TRUE(pos.setFromFEN("r1b1kbnr/pppppppp/2n5/3q4/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1"));
 
   AI ai(4);
   ai.clearTT();
@@ -103,8 +99,7 @@ TEST_F(AITest, CapturesHangingPiece) {
   EXPECT_TRUE(isLegalMove(pos, best));
 
   // The engine should capture the hanging queen on d5
-  EXPECT_EQ(toSquare(best), D5)
-      << "Expected capture on d5 but got " << moveToString(best);
+  EXPECT_EQ(toSquare(best), D5) << "Expected capture on d5 but got " << moveToString(best);
 }
 
 // ---------- Test 4: Does not blunder ----------
@@ -117,8 +112,7 @@ TEST_F(AITest, DoesNotBlunderFromStartingPosition) {
   Move best = ai.findBestMove(pos);
 
   EXPECT_NE(best, 0);
-  EXPECT_TRUE(isLegalMove(pos, best))
-      << "Engine returned illegal move: " << moveToString(best);
+  EXPECT_TRUE(isLegalMove(pos, best)) << "Engine returned illegal move: " << moveToString(best);
 
   // The move should be a reasonable opening move. At minimum, verify it
   // doesn't immediately blunder material. After making the move, run a
@@ -145,16 +139,13 @@ TEST_F(AITest, TimeManagementRespectsLimit) {
   Move best = ai.findBestMove(pos, 500);  // 500ms limit
   auto end = std::chrono::steady_clock::now();
 
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-          .count();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
   EXPECT_NE(best, 0);
   EXPECT_TRUE(isLegalMove(pos, best));
 
   // Allow generous tolerance: should finish well under 2000ms
-  EXPECT_LT(elapsed, 2000)
-      << "Search took " << elapsed << "ms, expected < 2000ms with 500ms limit";
+  EXPECT_LT(elapsed, 2000) << "Search took " << elapsed << "ms, expected < 2000ms with 500ms limit";
 }
 
 // ---------- Test 6: Iterative deepening produces valid move at depth 1 ----------
@@ -194,8 +185,7 @@ TEST_F(AITest, TranspositionTableWorks) {
   // With an efficient search, the second run may have fewer total nodes
   // (and thus fewer absolute hits) because TT cutoffs prune early.
   // Check that the TT hit rate improves, or that absolute hits are nonzero.
-  EXPECT_GT(ttHits2, 0u)
-      << "Expected TT hits on second search but got 0";
+  EXPECT_GT(ttHits2, 0u) << "Expected TT hits on second search but got 0";
 }
 
 // ---------- Test 8: Avoids perpetual check when winning ----------
@@ -208,8 +198,7 @@ TEST_F(AITest, AvoidsDrawWhenWinning) {
   // Black: Kg8, Nb3 (knight can give perpetual Nc1-b3-c1...)
   // White is winning — should play a constructive move, not shuffle.
   Position pos;
-  ASSERT_TRUE(pos.setFromFEN(
-      "6k1/8/8/8/8/1n6/5PPP/5RK1 w - - 0 1"));
+  ASSERT_TRUE(pos.setFromFEN("6k1/8/8/8/8/1n6/5PPP/5RK1 w - - 0 1"));
 
   AI ai(6);
   ai.clearTT();
@@ -257,9 +246,8 @@ TEST_F(AITest, DeeperSearchExaminesMoreNodes) {
   ai4.findBestMove(pos);
   uint64_t nodes4 = ai4.getNodesSearched();
 
-  EXPECT_GT(nodes4, nodes1)
-      << "Depth 4 searched " << nodes4 << " nodes, depth 1 searched " << nodes1
-      << " nodes -- deeper search should examine more nodes";
+  EXPECT_GT(nodes4, nodes1) << "Depth 4 searched " << nodes4 << " nodes, depth 1 searched "
+                            << nodes1 << " nodes -- deeper search should examine more nodes";
 }
 
 TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
@@ -273,6 +261,5 @@ TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
   Move best = ai.findBestMove(pos);
 
   // Must return a legal move
-  EXPECT_TRUE(isLegalMove(pos, best))
-      << "Engine must return a legal move in K+Q vs K endgame";
+  EXPECT_TRUE(isLegalMove(pos, best)) << "Engine must return a legal move in K+Q vs K endgame";
 }

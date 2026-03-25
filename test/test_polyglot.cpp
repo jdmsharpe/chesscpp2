@@ -1,11 +1,11 @@
-#include <gtest/gtest.h>
-
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Polyglot.h"
 #include "Position.h"
 #include "Zobrist.h"
+
+#include <gtest/gtest.h>
 
 class PolyglotTest : public ::testing::Test {
  protected:

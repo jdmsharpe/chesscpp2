@@ -1,8 +1,8 @@
 #include "Window.h"
 
-#include <iostream>
-
 #include "MoveGen.h"
+
+#include <iostream>
 
 Window::Window(int width, int height)
     : window(nullptr),
@@ -19,7 +19,9 @@ Window::Window(int width, int height)
   squareSize = width / 8;
 }
 
-Window::~Window() { cleanup(); }
+Window::~Window() {
+  cleanup();
+}
 
 bool Window::init() {
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -34,9 +36,8 @@ bool Window::init() {
     return false;
   }
 
-  window =
-      SDL_CreateWindow("Chess++ with Bitboards", SDL_WINDOWPOS_CENTERED,
-                       SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN);
+  window = SDL_CreateWindow("Chess++ with Bitboards", SDL_WINDOWPOS_CENTERED,
+                            SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_SHOWN);
 
   if (!window) {
     std::cerr << "Window creation failed: " << SDL_GetError() << "\n";
@@ -60,8 +61,8 @@ bool Window::init() {
 
 bool Window::loadPieceSprites() {
   // Try multiple possible paths for the pieces.png file
-  const char* paths[] = {"inc/pieces.png", "../inc/pieces.png",
-                         "../../inc/pieces.png", "pieces.png"};
+  const char* paths[] = {"inc/pieces.png", "../inc/pieces.png", "../../inc/pieces.png",
+                         "pieces.png"};
 
   SDL_Surface* surface = nullptr;
   for (const char* path : paths) {
@@ -86,8 +87,7 @@ bool Window::loadPieceSprites() {
   SDL_FreeSurface(surface);
 
   if (!piecesTexture) {
-    std::cerr << "Failed to create texture from pieces.png: " << SDL_GetError()
-              << "\n";
+    std::cerr << "Failed to create texture from pieces.png: " << SDL_GetError() << "\n";
     return false;
   }
 
@@ -128,8 +128,7 @@ void Window::run(Game& game) {
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) {
         running = false;
-      } else if (event.type == SDL_MOUSEBUTTONDOWN &&
-                 event.button.button == SDL_BUTTON_LEFT) {
+      } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
         handleClick(event.button.x, event.button.y, game);
       } else if (event.type == SDL_KEYDOWN) {
         // 'R' to reset
@@ -208,8 +207,7 @@ void Window::onAIMoveUpdate(Move move, int depth, const Position& pos) {
     fromRect.w = squareSize;
     fromRect.h = squareSize;
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g,
-                           aiMoveColor.b, 100);
+    SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 100);
     SDL_RenderFillRect(renderer, &fromRect);
 
     // Draw "to" square highlight
@@ -220,8 +218,7 @@ void Window::onAIMoveUpdate(Move move, int depth, const Position& pos) {
     toRect.y = toRank * squareSize;
     toRect.w = squareSize;
     toRect.h = squareSize;
-    SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g,
-                           aiMoveColor.b, 150);
+    SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 150);
     SDL_RenderFillRect(renderer, &toRect);
 
     // Draw thick arrow from -> to
@@ -302,15 +299,13 @@ void Window::drawHighlights(const Game& game) {
     rect.w = squareSize;
     rect.h = squareSize;
 
-    SDL_SetRenderDrawColor(renderer, highlight.r, highlight.g, highlight.b,
-                           128);
+    SDL_SetRenderDrawColor(renderer, highlight.r, highlight.g, highlight.b, 128);
     SDL_RenderFillRect(renderer, &rect);
 
     // Highlight legal move squares
     // Need mutable copy to generate legal moves
     Game& mutableGame = const_cast<Game&>(game);
-    std::vector<Move> legalMoves =
-        MoveGen::generateLegalMoves(mutableGame.getPosition());
+    std::vector<Move> legalMoves = MoveGen::generateLegalMoves(mutableGame.getPosition());
     SDL_Color legalMoveColor = {200, 200, 100, 100};
 
     for (Move move : legalMoves) {
@@ -325,8 +320,7 @@ void Window::drawHighlights(const Game& game) {
         toRect.w = squareSize / 3;
         toRect.h = squareSize / 3;
 
-        SDL_SetRenderDrawColor(renderer, legalMoveColor.r, legalMoveColor.g,
-                               legalMoveColor.b, 180);
+        SDL_SetRenderDrawColor(renderer, legalMoveColor.r, legalMoveColor.g, legalMoveColor.b, 180);
         SDL_RenderFillRect(renderer, &toRect);
       }
     }
@@ -442,15 +436,13 @@ void Window::handleClick(int x, int y, Game& game) {
         PieceType pt = typeOf(pc);
 
         // Try promotion
-        if (pt == PAWN && (rankOf(clickedSquare) == RANK_8 ||
-                           rankOf(clickedSquare) == RANK_1)) {
+        if (pt == PAWN && (rankOf(clickedSquare) == RANK_8 || rankOf(clickedSquare) == RANK_1)) {
           move = makePromotion(selectedSquare, clickedSquare, QUEEN);
           moveMade = game.makeMove(move);
         }
 
         // Try castling
-        if (!moveMade && pt == KING &&
-            std::abs(selectedSquare - clickedSquare) == 2) {
+        if (!moveMade && pt == KING && std::abs(selectedSquare - clickedSquare) == 2) {
           move = makeCastling(selectedSquare, clickedSquare);
           moveMade = game.makeMove(move);
         }
@@ -463,8 +455,8 @@ void Window::handleClick(int x, int y, Game& game) {
       }
 
       if (moveMade) {
-        std::cout << "Move: " << squareToString(selectedSquare)
-                  << squareToString(clickedSquare) << "\n";
+        std::cout << "Move: " << squareToString(selectedSquare) << squareToString(clickedSquare)
+                  << "\n";
         pos.print();
 
         if (game.isGameOver()) {
@@ -507,8 +499,7 @@ void Window::drawAIThinking() {
   fromRect.y = fromRank * squareSize;
   fromRect.w = squareSize;
   fromRect.h = squareSize;
-  SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b,
-                         100);
+  SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 100);
   SDL_RenderFillRect(renderer, &fromRect);
 
   // Draw "to" square
@@ -519,8 +510,7 @@ void Window::drawAIThinking() {
   toRect.y = toRank * squareSize;
   toRect.w = squareSize;
   toRect.h = squareSize;
-  SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b,
-                         150);
+  SDL_SetRenderDrawColor(renderer, aiMoveColor.r, aiMoveColor.g, aiMoveColor.b, 150);
   SDL_RenderFillRect(renderer, &toRect);
 
   // Draw arrow or line from -> to

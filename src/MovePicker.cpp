@@ -3,10 +3,8 @@
 #include <algorithm>
 #include <limits>
 
-MovePicker::MovePicker(Position& pos, Move ttMove, Move killer1, Move killer2,
-                       Move countermove,
-                       const std::array<std::array<int, 64>, 64>& history,
-                       Move excludedMove)
+MovePicker::MovePicker(Position& pos, Move ttMove, Move killer1, Move killer2, Move countermove,
+                       const std::array<std::array<int, 64>, 64>& history, Move excludedMove)
     : pos(pos),
       ttMove(ttMove),
       excludedMove(excludedMove),
@@ -38,11 +36,9 @@ Move MovePicker::next() {
 
     case STAGE_KILLER_1:
       stage = STAGE_KILLER_2;
-      if (killer1 && killer1 != ttMove && killer1 != excludedMove &&
-          isInMoveList(killer1)) {
+      if (killer1 && killer1 != ttMove && killer1 != excludedMove && isInMoveList(killer1)) {
         // Killers are quiet moves only
-        if (pos.pieceAt(toSquare(killer1)) == NO_PIECE &&
-            moveType(killer1) != EN_PASSANT) {
+        if (pos.pieceAt(toSquare(killer1)) == NO_PIECE && moveType(killer1) != EN_PASSANT) {
           return killer1;
         }
       }
@@ -50,10 +46,9 @@ Move MovePicker::next() {
 
     case STAGE_KILLER_2:
       stage = STAGE_COUNTERMOVE;
-      if (killer2 && killer2 != ttMove && killer2 != killer1 &&
-          killer2 != excludedMove && isInMoveList(killer2)) {
-        if (pos.pieceAt(toSquare(killer2)) == NO_PIECE &&
-            moveType(killer2) != EN_PASSANT) {
+      if (killer2 && killer2 != ttMove && killer2 != killer1 && killer2 != excludedMove &&
+          isInMoveList(killer2)) {
+        if (pos.pieceAt(toSquare(killer2)) == NO_PIECE && moveType(killer2) != EN_PASSANT) {
           return killer2;
         }
       }
@@ -62,10 +57,8 @@ Move MovePicker::next() {
     case STAGE_COUNTERMOVE:
       stage = STAGE_QUIETS;
       if (countermove && countermove != ttMove && countermove != killer1 &&
-          countermove != killer2 && countermove != excludedMove &&
-          isInMoveList(countermove)) {
-        if (pos.pieceAt(toSquare(countermove)) == NO_PIECE &&
-            moveType(countermove) != EN_PASSANT) {
+          countermove != killer2 && countermove != excludedMove && isInMoveList(countermove)) {
+        if (pos.pieceAt(toSquare(countermove)) == NO_PIECE && moveType(countermove) != EN_PASSANT) {
           return countermove;
         }
       }
@@ -74,8 +67,7 @@ Move MovePicker::next() {
     case STAGE_QUIETS:
       while (quietIdx < quietMoves.size()) {
         Move m = pickBest(quietMoves, quietIdx);
-        if (m != ttMove && m != killer1 && m != killer2 &&
-            m != countermove && m != excludedMove) {
+        if (m != ttMove && m != killer1 && m != killer2 && m != countermove && m != excludedMove) {
           return m;
         }
       }
@@ -102,8 +94,7 @@ void MovePicker::generateAndScore() {
   for (Move m : pseudoLegal) {
     Square to = toSquare(m);
     Square from = fromSquare(m);
-    bool isCapture =
-        pos.pieceAt(to) != NO_PIECE || moveType(m) == EN_PASSANT;
+    bool isCapture = pos.pieceAt(to) != NO_PIECE || moveType(m) == EN_PASSANT;
     bool isPromotion = moveType(m) == PROMOTION;
 
     ScoredMove sm;

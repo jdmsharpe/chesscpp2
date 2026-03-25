@@ -18,7 +18,9 @@ constexpr int KnightOffsets[8] = {-17, -15, -10, -6, 6, 10, 15, 17};
 constexpr int KingOffsets[8] = {-9, -8, -7, -1, 1, 7, 8, 9};
 
 // Check if a square is valid
-bool isValid(int sq) { return sq >= 0 && sq < 64; }
+bool isValid(int sq) {
+  return sq >= 0 && sq < 64;
+}
 
 // Check if knight move is valid (no wrapping)
 bool isValidKnightMove(Square from, Square to) {
@@ -39,12 +41,10 @@ void init() {
   for (Square sq = A1; sq <= H8; ++sq) {
     // White pawns
     Bitboard bb = squareBB(sq);
-    PawnAttacks[WHITE][sq] =
-        pawnAttackWest<WHITE>(bb) | pawnAttackEast<WHITE>(bb);
+    PawnAttacks[WHITE][sq] = pawnAttackWest<WHITE>(bb) | pawnAttackEast<WHITE>(bb);
 
     // Black pawns
-    PawnAttacks[BLACK][sq] =
-        pawnAttackWest<BLACK>(bb) | pawnAttackEast<BLACK>(bb);
+    PawnAttacks[BLACK][sq] = pawnAttackWest<BLACK>(bb) | pawnAttackEast<BLACK>(bb);
   }
 
   // Initialize knight attacks
@@ -87,8 +87,7 @@ void init() {
       int rankDiff = rank2 - rank1;
 
       // Only for aligned squares (same rank, file, or diagonal)
-      if (fileDiff != 0 && rankDiff != 0 &&
-          std::abs(fileDiff) != std::abs(rankDiff)) {
+      if (fileDiff != 0 && rankDiff != 0 && std::abs(fileDiff) != std::abs(rankDiff)) {
         BetweenBB[sq1][sq2] = EMPTY;
         continue;
       }
@@ -122,8 +121,7 @@ std::string toString(Bitboard bb) {
     oss << "\n";
   }
   oss << "  a b c d e f g h\n";
-  oss << "  Bitboard: 0x" << std::hex << std::setw(16) << std::setfill('0')
-      << bb << std::dec;
+  oss << "  Bitboard: 0x" << std::hex << std::setw(16) << std::setfill('0') << bb << std::dec;
   return oss.str();
 }
 
