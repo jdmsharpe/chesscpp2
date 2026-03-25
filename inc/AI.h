@@ -65,6 +65,12 @@ class AI {
   Move probePolyglotBook(const Position& pos);
   bool hasPolyglotBook() const;
 
+  // Book usage controls
+  void setOwnBook(bool enabled) { useOwnBook = enabled; }
+  bool getOwnBook() const { return useOwnBook; }
+  void setBookDepth(int maxMove) { bookMoveLimit = maxMove; }
+  int getBookDepth() const { return bookMoveLimit; }
+
   // Syzygy tablebase support
   static bool initTablebases(const std::string& path);
   static void freeTablebases();
@@ -146,6 +152,10 @@ class AI {
 
   // Polyglot opening book
   PolyglotBook polyglotBook;
+
+  // Book usage controls
+  bool useOwnBook = true;  // UCI OwnBook option
+  int bookMoveLimit = 0;   // Max fullmove number for book usage (0 = unlimited)
 
   // Minimax with alpha-beta pruning
   // excludedMove: for singular extension searches (skip this move)

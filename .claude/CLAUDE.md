@@ -107,6 +107,8 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 - `setoption name Hash value 64` — Transposition table size in MB (default 128, range 1–4096)
 - `setoption name SyzygyPath value /path/to/syzygy` — Syzygy tablebase directory
 - `setoption name BookPath value /path/to/books/Titans.bin` — Polyglot opening book
+- `setoption name OwnBook value true` — Enable/disable internal book usage (default true)
+- `setoption name BookDepth value 20` — Stop using book after move N (default 0 = unlimited)
 
 ## Design Documents
 

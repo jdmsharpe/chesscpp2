@@ -287,8 +287,8 @@ uint64_t PolyglotBook::computeHash(const Position& pos) {
   uint64_t hash = 0;
 
   // Pieces
-  // Polyglot piece order: wP=0, bP=1, wN=2, bN=3, wB=4, bB=5, wR=6, bR=7, wQ=8,
-  // bQ=9, wK=10, bK=11
+  // Polyglot piece order: bP=0, wP=1, bN=2, wN=3, bB=4, wB=5, bR=6, wR=7, bQ=8,
+  // wQ=9, bK=10, wK=11
   for (Square sq = A1; sq <= H8; sq = Square(sq + 1)) {
     Piece p = pos.pieceAt(sq);
     if (p != NO_PIECE) {
@@ -369,7 +369,7 @@ uint64_t PolyglotBook::computeHash(const Position& pos) {
     }
   }
 
-  // Side to move (Polyglot: white=0, black=hash with RandomTurn)
+  // Side to move (Polyglot: black=0, white=hash with RandomTurn)
   if (pos.sideToMove() == WHITE) {
     hash ^= RandomTurn;
   }
@@ -377,7 +377,8 @@ uint64_t PolyglotBook::computeHash(const Position& pos) {
   return hash;
 }
 
-Move PolyglotBook::convertMove(uint16_t polyMove, const Position& pos) const {
+Move PolyglotBook::convertMove(uint16_t polyMove, const Position& pos,
+                               const std::vector<Move>& legalMoves) const {
   // Polyglot move encoding:
   // bits 0-2: to file
   // bits 3-5: to rank
@@ -407,10 +408,7 @@ Move PolyglotBook::convertMove(uint16_t polyMove, const Position& pos) const {
     }
   }
 
-  // Find matching legal move
-  Position posCopy = pos;
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
-
+  // Find matching legal move from the caller-provided list
   for (Move m : legalMoves) {
     if (fromSquare(m) == from && toSquare(m) == to) {
       // Check promotion
@@ -450,12 +448,16 @@ Move PolyglotBook::probe(const Position& pos) const {
 
   if (start == end) return 0;  // No entries found
 
+  // Generate legal moves once for all book entry conversions
+  Position posCopy = pos;
+  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
+
   // Collect all moves with their weights
   std::vector<std::pair<Move, uint32_t>> moves;
   uint32_t totalWeight = 0;
 
   for (size_t i = start; i < end; ++i) {
-    Move m = convertMove(entries[i].move, pos);
+    Move m = convertMove(entries[i].move, pos, legalMoves);
     if (m != 0) {
       moves.push_back({m, entries[i].weight});
       totalWeight += entries[i].weight;
@@ -490,8 +492,12 @@ std::vector<std::pair<Move, uint16_t>> PolyglotBook::getMoves(const Position& po
   uint64_t key = computeHash(pos);
   auto [start, end] = findEntries(key);
 
+  // Generate legal moves once for all book entry conversions
+  Position posCopy = pos;
+  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
+
   for (size_t i = start; i < end; ++i) {
-    Move m = convertMove(entries[i].move, pos);
+    Move m = convertMove(entries[i].move, pos, legalMoves);
     if (m != 0) {
       result.push_back({m, entries[i].weight});
     }

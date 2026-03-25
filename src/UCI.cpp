@@ -84,6 +84,8 @@ void UCI::handleUCI() {
   std::cout << "option name Depth type spin default 6 min 1 max 20" << std::endl;
   std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
   std::cout << "option name BookPath type string default <empty>" << std::endl;
+  std::cout << "option name OwnBook type check default true" << std::endl;
+  std::cout << "option name BookDepth type spin default 0 min 0 max 200" << std::endl;
   std::cout << "uciok" << std::endl;
 }
 
@@ -320,6 +322,19 @@ void UCI::handleSetOption(const std::string& args) {
       } else {
         std::cout << "info string Failed to load Polyglot book from: " << path << std::endl;
       }
+    }
+  } else if (name == "OwnBook") {
+    game.setOwnBook(value == "true");
+    if (debug) {
+      std::cout << "info string OwnBook " << (value == "true" ? "enabled" : "disabled")
+                << std::endl;
+    }
+  } else if (name == "BookDepth") {
+    int maxMove = std::stoi(value);
+    if (maxMove < 0) maxMove = 0;
+    game.setBookDepth(maxMove);
+    if (debug) {
+      std::cout << "info string BookDepth set to " << maxMove << std::endl;
     }
   }
 }

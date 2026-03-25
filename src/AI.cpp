@@ -15,6 +15,21 @@
 #include <random>
 #include <sstream>
 
+// Strip halfmove clock and fullmove counter from a FEN string so that
+// transpositions (same position, different move numbers) share a book key.
+static std::string fenPositionKey(const std::string& fen) {
+  // FEN fields: position side castling ep halfmove fullmove
+  // We keep the first 4 fields.
+  int spaces = 0;
+  for (size_t i = 0; i < fen.size(); ++i) {
+    if (fen[i] == ' ') {
+      ++spaces;
+      if (spaces == 4) return fen.substr(0, i);
+    }
+  }
+  return fen;  // Fewer than 4 spaces — return as-is
+}
+
 // --- Static LMR table ---
 int AI::lmrTable[64][64] = {};
 bool AI::lmrInitialized = false;
@@ -132,7 +147,7 @@ void AI::loadOpeningBook(const std::string& filename) {
     }
 
     if (!moves.empty()) {
-      openingBook[fen] = moves;
+      openingBook[fenPositionKey(fen)] = moves;
     }
   }
 
@@ -148,7 +163,7 @@ Move AI::probeOpeningBook(const Position& pos) {
 
   if (openingBook.empty()) return 0;
 
-  std::string fen = pos.getFEN();
+  std::string fen = fenPositionKey(pos.getFEN());
   auto it = openingBook.find(fen);
   if (it == openingBook.end()) return 0;
 
@@ -158,8 +173,7 @@ Move AI::probeOpeningBook(const Position& pos) {
   static std::random_device rd;
   static std::mt19937 gen(rd());
 
-  int maxIndex = std::min(3, static_cast<int>(bookMoves.size()));
-  std::uniform_int_distribution<> dis(0, maxIndex - 1);
+  std::uniform_int_distribution<> dis(0, static_cast<int>(bookMoves.size()) - 1);
 
   return bookMoves[dis(gen)];
 }
@@ -188,20 +202,25 @@ Move AI::findBestMove(Position& pos, int timeMs) {
 }
 
 Move AI::findBestMove(Position& pos) {
-  // Check Polyglot book first
-  if (hasPolyglotBook()) {
-    Move bookMove = probePolyglotBook(pos);
+  // Check opening books if enabled and within move limit
+  bool inBookRange = useOwnBook && (bookMoveLimit == 0 || pos.fullmoveNumber() <= bookMoveLimit);
+
+  if (inBookRange) {
+    // Check Polyglot book first
+    if (hasPolyglotBook()) {
+      Move bookMove = probePolyglotBook(pos);
+      if (bookMove != 0) {
+        std::cout << "info string Polyglot book move: " << moveToString(bookMove) << std::endl;
+        return bookMove;
+      }
+    }
+
+    // Fall back to text opening book
+    Move bookMove = probeOpeningBook(pos);
     if (bookMove != 0) {
-      std::cout << "info string Polyglot book move: " << moveToString(bookMove) << std::endl;
+      std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
       return bookMove;
     }
-  }
-
-  // Fall back to text opening book
-  Move bookMove = probeOpeningBook(pos);
-  if (bookMove != 0) {
-    std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
-    return bookMove;
   }
 
   // Check Syzygy tablebases at root
