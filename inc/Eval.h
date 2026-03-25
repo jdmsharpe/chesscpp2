@@ -6,4 +6,8 @@ namespace Eval {
 // Evaluate position from the perspective of the side to move.
 // Positive = side to move is better. Units: centipawns.
 int evaluate(const Position& pos);
+
+// Exposed for testing — returns raw king safety score for the given side.
+// Positive = safer king. Negative = king under attack.
+int kingSafetyForTest(const Position& pos, Color c);
 }  // namespace Eval

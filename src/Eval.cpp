@@ -598,4 +598,8 @@ int evaluate(const Position& pos) {
 
   return (pos.sideToMove() == WHITE) ? score : -score;
 }
+
+int kingSafetyForTest(const Position& pos, Color c) {
+  return evaluateKingSafety(pos, c);
+}
 }  // namespace Eval
