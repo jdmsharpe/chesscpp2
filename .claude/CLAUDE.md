@@ -40,6 +40,7 @@ bash scripts/verify_perft.sh   # Verify perft node counts against known values (
 - CMake 3.16+, C++20 (GCC 10+ / Clang 10+)
 - SDL2, SDL2_image: `sudo apt-get install libsdl2-dev libsdl2-image-dev`
 - Google Test (auto-fetched by CMake)
+- Python scripts: `pip install -r requirements.txt` (chess, pygame)
 
 ## Architecture
 
@@ -58,7 +59,7 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
 | Staged move gen | `MovePicker.h/cpp` | Yields pseudo-legal moves in priority order: TT → good captures → killers → countermove → quiets → bad captures; lazy legality |
 | Search | `AI.h/cpp` | Alpha-beta with: MovePicker (staged gen + lazy legality), multi-bucket TT (4-entry, packed 10-byte entries, mate score ply adjustment, prefetch), logarithmic LMR table, singular extensions, PVS, IID, adaptive null move pruning (R = 3 + depth/6), history malus, aspiration windows, contempt, retreat penalty; futility/RFP/razoring only at non-PV nodes |
-| Evaluation | `Eval.h/cpp` | Incremental PST via Position accumulators (O(1) material + PST + phase), tapered eval, pawn structure with pawn hash table (16K entries), king safety with attack unit counting (quadratic penalty), mobility, development, rook-behind-passer, king-passer proximity, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
+| Evaluation | `Eval.h/cpp` | Incremental PST via Position accumulators (O(1) material + PST + phase), tapered eval, pawn structure with pawn hash table (16K entries), king safety with attack unit counting (quadratic penalty, queen-presence scaling, material-scaled danger), mobility, development, rook-behind-passer, king-passer proximity, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
 | Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`), WDL probed during search (depth ≥ 2) + DTZ at root |
@@ -69,11 +70,12 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 
 ### Scripts (`scripts/`)
 
+- `animate_game.py` — pygame game viewer with sliding pieces and move arrows (reads PGN from `games/`)
 - `self_play_test.py` — engine self-play
 - `tournament.py` — multi-engine tournaments
 - `watch_game.py` — visualize games in progress
 - `diagnose.py` — engine diagnostics
-- `depth8_vs_stockfish.py` — Stockfish benchmark
+- `depth12_vs_stockfish6.py` — Stockfish benchmark
 - `test_preference.py` — preference testing
 - `verify_perft.sh` — perft verification (used by CI)
 
