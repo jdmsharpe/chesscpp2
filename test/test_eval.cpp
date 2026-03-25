@@ -410,3 +410,59 @@ TEST_F(EvalTest, Development_AfterE4BetterThanStart) {
       << "After 1.e4 white's eval (" << scoreE4ForWhite
       << ") should be better than starting position (" << scoreStartForWhite << ")";
 }
+
+// =============================================================================
+// King Safety — Queen-Presence Scaling
+// =============================================================================
+
+TEST_F(EvalTest, KingSafety_QueenScaling_AttackWeakerWithoutQueen) {
+  // White king on g1 with pawns f2,g2,h2. Black Q on e4 + N on f3 attack
+  // the king zone (Qe4 hits g2, Nf3 hits g1+h2). 2 attackers = penalty fires.
+  Position posWithQueen;
+  posWithQueen.setFromFEN("6k1/8/8/8/4q3/5n2/5PPP/6K1 w - - 0 1");
+  int safetyWithQueen = Eval::kingSafetyForTest(posWithQueen, WHITE);
+
+  // Same setup but Black's queen replaced with a bishop on e4.
+  // Be4 attacks g2 (in king zone) via diagonal, Nf3 attacks g1+h2.
+  // Still 2 attackers, but attacker has no queen → penalty should be scaled down.
+  Position posNoQueen;
+  posNoQueen.setFromFEN("6k1/8/8/8/4b3/5n2/5PPP/6K1 w - - 0 1");
+  int safetyNoQueen = Eval::kingSafetyForTest(posNoQueen, WHITE);
+
+  // Without attacker's queen, the king safety penalty should be smaller
+  // (less negative = higher score = safer king).
+  EXPECT_GT(safetyNoQueen, safetyWithQueen)
+      << "King safety without attacker queen (" << safetyNoQueen
+      << ") should be better than with queen (" << safetyWithQueen << ")";
+}
+
+TEST_F(EvalTest, KingSafety_QueenScaling_PenaltyDropsSignificantly) {
+  // Quantitative check: the penalty with queen should be at least 3x
+  // the penalty without queen (accounting for both queen-scaling and
+  // different attack units: Q=5 vs B=2 units).
+  //
+  // With queen (2 attackers, 7 units): base penalty = 7*7/2 = 24, scaled 100% = 24
+  // Without queen (2 attackers, 4 units): base penalty = 4*4/2 = 8, scaled 25% = 2
+  // Ratio: 24/2 = 12x. We conservatively test >= 3x.
+  Position posWithQueen;
+  posWithQueen.setFromFEN("6k1/8/8/8/4q3/5n2/5PPP/6K1 w - - 0 1");
+  int safetyWith = Eval::kingSafetyForTest(posWithQueen, WHITE);
+
+  Position posNoQueen;
+  posNoQueen.setFromFEN("6k1/8/8/8/4b3/5n2/5PPP/6K1 w - - 0 1");
+  int safetyNo = Eval::kingSafetyForTest(posNoQueen, WHITE);
+
+  // Both positions have same pawn shield, so the pawn shield component cancels.
+  // Compute the attack penalty portion (the negative part beyond shield).
+  // A position with no attackers and the same pawns gives us the shield baseline.
+  Position posNoAttack;
+  posNoAttack.setFromFEN("6k1/8/8/8/8/8/5PPP/6K1 w - - 0 1");
+  int safetyBaseline = Eval::kingSafetyForTest(posNoAttack, WHITE);
+
+  int penaltyWith = safetyBaseline - safetyWith;  // positive = larger penalty
+  int penaltyNo = safetyBaseline - safetyNo;
+
+  EXPECT_GE(penaltyWith, penaltyNo * 3)
+      << "Queen-present penalty (" << penaltyWith
+      << ") should be at least 3x the no-queen penalty (" << penaltyNo << ")";
+}
