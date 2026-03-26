@@ -250,6 +250,25 @@ TEST_F(AITest, DeeperSearchExaminesMoreNodes) {
                             << nodes1 << " nodes -- deeper search should examine more nodes";
 }
 
+// ---------- Test: Defends hanging piece ----------
+TEST_F(AITest, DefendsHangingPiece) {
+  // White queen on d4 is attacked by Black knight on e6 and undefended.
+  // White must move the queen to avoid losing it.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("6k1/5ppp/4n3/8/3Q4/8/5PPP/6K1 w - - 0 1"));
+
+  AI ai(6);
+  ai.clearTT();
+  Move best = ai.findBestMove(pos);
+
+  EXPECT_NE(best, 0);
+  EXPECT_TRUE(isLegalMove(pos, best));
+
+  // The engine should move the queen away from d4
+  EXPECT_EQ(fromSquare(best), D4) << "Expected queen to move from d4 but got "
+                                  << moveToString(best);
+}
+
 TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
   // Even without tablebases loaded, the engine should handle simple endgame
   // positions correctly (K+Q vs K should find checkmate at sufficient depth).
