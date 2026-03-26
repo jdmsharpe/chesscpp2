@@ -27,10 +27,10 @@ stockfish = Engine(
 
 tournament = Tournament([chesscpp, stockfish])
 
-# Play 6 games (3 as white, 3 as black)
+# Play 10 games (5 as white, 5 as black)
 try:
-    print("\nPlaying 6 games (alternating colors)...")
-    tournament.run_round_robin(games_per_pairing=3, depth=12)
+    print("\nPlaying 10 games (alternating colors)...")
+    tournament.run_round_robin(games_per_pairing=5, depth=12)
 except KeyboardInterrupt:
     print("\n\nTournament interrupted by user")
     sys.exit(1)
