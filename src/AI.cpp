@@ -359,12 +359,15 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
   // Draw detection (skip root)
   if (ply > 0) {
     if (pos.repetitionCount() >= 2 || pos.halfmoveClock() >= 100) {
-      int contempt = 0;
+      // Base contempt: always slightly prefer playing on over drawing.
+      // This combats the engine's tendency to passively accept draws,
+      // especially as Black where it drew 19 / won only 8 out of 50 games.
+      int contempt = -10;
       int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
       if (material > 200)
-        contempt = -15;
+        contempt = -25;  // Strongly avoid draws when ahead
       else if (material < -200)
-        contempt = 15;
+        contempt = 5;  // Only mildly prefer draws when behind (fight on)
       return contempt;
     }
   }
@@ -615,9 +618,9 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
 
   if (pos.repetitionCount() >= 2) {
     int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
-    if (material > 200) return -15;
-    if (material < -200) return 15;
-    return 0;
+    if (material > 200) return -25;
+    if (material < -200) return 5;
+    return -10;
   }
 
   bool inCheck = pos.inCheck();

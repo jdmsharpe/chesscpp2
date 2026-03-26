@@ -19,7 +19,7 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ```bash
 # From build/ directory
-ctest                          # Run all tests (166 tests)
+ctest                          # Run all tests (173 tests)
 ./test/test_bitboard           # Bitboard operations
 ./test/test_movegen            # Move generation + generateCheckingMoves
 ./test/test_position           # Position/make-unmake/SEE/draw detection/incremental eval accumulators
@@ -59,7 +59,7 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
 | Staged move gen | `MovePicker.h/cpp` | Yields pseudo-legal moves in priority order: TT → good captures → killers → countermove → quiets → bad captures; lazy legality |
 | Search | `AI.h/cpp` | Alpha-beta with: MovePicker (staged gen + lazy legality), multi-bucket TT (4-entry, packed 10-byte entries, mate score ply adjustment, prefetch), logarithmic LMR table, singular extensions, PVS, IID, adaptive null move pruning (R = 3 + depth/6), history malus, aspiration windows, contempt, retreat penalty; futility/RFP/razoring only at non-PV nodes |
-| Evaluation | `Eval.h/cpp` | Incremental PST via Position accumulators (O(1) material + PST + phase), tapered eval, pawn structure with pawn hash table (16K entries), king safety with attack unit counting (quadratic penalty, queen-presence scaling, material-scaled danger), mobility, development, rook-behind-passer, king-passer proximity (1.5x endgame weight), dynamic king centralization, mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
+| Evaluation | `Eval.h/cpp` | Incremental PST via Position accumulators (O(1) material + PST + phase), tapered eval, pawn structure with pawn hash table (16K entries), king safety with attack unit counting (quadratic penalty, queen-presence scaling, material-scaled danger), mobility, development, rook-behind-passer, king-passer proximity (2x endgame weight), dynamic king centralization (2x endgame weight), mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
 | Tablebases | `Tablebase.h/cpp` | Syzygy via Fathom (`lib/Fathom`), WDL probed during search (depth ≥ 2) + DTZ at root |

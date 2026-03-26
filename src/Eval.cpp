@@ -80,7 +80,7 @@ static int evaluatePawnStructureSide(const Position& pos, Color c) {
 
     if (!(enemyPawns & passedMask)) {
       int advancement = c == WHITE ? rank - 1 : 6 - rank;
-      static constexpr int advancementBonus[6] = {10, 20, 35, 55, 90, 150};
+      static constexpr int advancementBonus[6] = {10, 20, 40, 70, 120, 200};
       int bonus = advancementBonus[advancement];
 
       // Clear path bonus
@@ -571,7 +571,7 @@ static int evaluateKingPawnProximity(const Position& pos, Color c) {
 
 static int evaluateKingCentralization(const Position& pos, Color c) {
   Square kingSq = BB::lsb(pos.pieces(c, KING));
-  return (6 - centerDistance(kingSq)) * 8;
+  return (6 - centerDistance(kingSq)) * 14;
 }
 
 }  // anonymous namespace
@@ -604,7 +604,7 @@ int evaluate(const Position& pos) {
 
   int endgameScore = material + (positional / 2) + kingPositionalEG + (mobility / 2) +
                      (kingSafety / 4) + (pawnStructure * 3 / 2) + (rookScore * 3 / 2) +
-                     bishopScore + knightScore + (kingPawnProx * 3 / 2) + kingCentralization;
+                     bishopScore + knightScore + (kingPawnProx * 2) + kingCentralization * 2;
 
   int score = (openingScore * phase + endgameScore * (256 - phase)) / 256;
 

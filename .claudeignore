@@ -1,5 +1,43 @@
-.venv/
-__pycache__/
+# .claudeignore
+
+## OS files
+
+.DS_Store
+Thumbs.db
+
+## Chess engines and testing tools
+
+stockfish/
+*.tar
+
+## Git tracking
+
 .git/
+
+## Virtual environment
+
+.venv/
+
+## Python
+
+__pycache__/
 *.pyc
+*.pyo
+
+## Syzygy tablebases
+
+syzygy/
+*.rtbw
+*.rtbz
+
+## Build output
+
 build/
+
+## Game PGN files
+
+games/
+
+## Polyglot opening books
+
+books/

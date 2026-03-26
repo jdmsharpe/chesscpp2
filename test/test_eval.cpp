@@ -526,8 +526,8 @@ TEST_F(EvalTest, KingCentralization_CenterBetterThanCorner) {
       << "Central king (" << centralScore << ") should score higher than corner king ("
       << cornerScore << ")";
 
-  // d4 = centerDistance 0, bonus = 48. a1 = centerDistance 6, bonus = 0.
-  EXPECT_EQ(centralScore, 48);
+  // d4 = centerDistance 0, bonus = 84. a1 = centerDistance 6, bonus = 0.
+  EXPECT_EQ(centralScore, 84);
   EXPECT_EQ(cornerScore, 0);
 }
 
