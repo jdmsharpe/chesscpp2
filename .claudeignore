@@ -24,6 +24,15 @@ __pycache__/
 *.pyc
 *.pyo
 
+## Ruff cache
+
+.ruff_cache/
+
+## External libraries (but allow Fathom submodule)
+
+lib/*
+!lib/Fathom/
+
 ## Syzygy tablebases
 
 syzygy/
