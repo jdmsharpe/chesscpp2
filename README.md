@@ -1,5 +1,8 @@
 # Chess++ with Bitboards
 
+![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fgithub.com%2Fjdmsharpe%2Fchesscpp2%2F&label=chesscpp2&icon=github&color=%23198754&message=&style=flat&tz=UTC)
+[![CI](https://github.com/jdmsharpe/chesscpp2/actions/workflows/ci.yml/badge.svg)](https://github.com/jdmsharpe/chesscpp2/actions/workflows/ci.yml)
+
 An improved chess engine implementation using bitboards for fast move generation and position evaluation.
 
 ## Features
