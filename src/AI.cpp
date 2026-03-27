@@ -359,15 +359,15 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
   // Draw detection (skip root)
   if (ply > 0) {
     if (pos.repetitionCount() >= 2 || pos.halfmoveClock() >= 100) {
-      // Base contempt: always slightly prefer playing on over drawing.
-      // This combats the engine's tendency to passively accept draws,
-      // especially as Black where it drew 19 / won only 8 out of 50 games.
-      int contempt = -10;
+      // Phase-scaled contempt: fight harder in endgames (where passive
+      // draws cost Elo) but stay neutral in middlegames.
+      int phase = pos.getGamePhase();
+      int contempt = -CONTEMPT_MAX * (256 - phase) / 256;
       int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
-      if (material > 200)
-        contempt = -25;  // Strongly avoid draws when ahead
-      else if (material < -200)
-        contempt = 5;  // Only mildly prefer draws when behind (fight on)
+      if (material > CONTEMPT_MATERIAL_THRESHOLD)
+        contempt -= CONTEMPT_AHEAD_BONUS;
+      else if (material < -CONTEMPT_MATERIAL_THRESHOLD)
+        contempt += CONTEMPT_BEHIND_OFFSET;
       return contempt;
     }
   }
@@ -617,10 +617,14 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
   nodesSearched++;
 
   if (pos.repetitionCount() >= 2) {
+    int phase = pos.getGamePhase();
+    int contempt = -CONTEMPT_MAX * (256 - phase) / 256;
     int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
-    if (material > 200) return -25;
-    if (material < -200) return 5;
-    return -10;
+    if (material > CONTEMPT_MATERIAL_THRESHOLD)
+      contempt -= CONTEMPT_AHEAD_BONUS;
+    else if (material < -CONTEMPT_MATERIAL_THRESHOLD)
+      contempt += CONTEMPT_BEHIND_OFFSET;
+    return contempt;
   }
 
   bool inCheck = pos.inCheck();

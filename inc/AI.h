@@ -89,6 +89,12 @@ class AI {
   // Callback for GUI updates
   MoveCallback moveCallback;
 
+  // --- Contempt (phase-scaled draw score) ---
+  static constexpr int CONTEMPT_MAX = 15;            // Max base contempt (in pure endgame)
+  static constexpr int CONTEMPT_AHEAD_BONUS = 15;    // Extra draw aversion when ahead in material
+  static constexpr int CONTEMPT_BEHIND_OFFSET = 10;  // Offset toward draws when behind
+  static constexpr int CONTEMPT_MATERIAL_THRESHOLD = 200;  // Centipawns
+
   // --- Transposition Table (multi-bucket, packed entries) ---
   static constexpr int MATE_SCORE = 10000;
   static constexpr int MATE_BOUND = 9500;
