@@ -1,0 +1,40 @@
+#!/bin/bash
+# Pre-commit hook: auto-format and lint staged C++ and Python files
+
+STATUS=0
+
+# --- C++ formatting (clang-format) ---
+CPP_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h|hpp)$' | grep -E '^(src|inc|test)/')
+
+if [ -n "$CPP_FILES" ]; then
+  if command -v clang-format &>/dev/null; then
+    echo "$CPP_FILES" | xargs clang-format -i
+    echo "$CPP_FILES" | xargs git add
+    echo "clang-format: formatted $(echo "$CPP_FILES" | wc -l) C++ file(s)"
+  else
+    echo "Warning: clang-format not found, skipping C++ formatting"
+  fi
+fi
+
+# --- Python formatting + linting (ruff) ---
+PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' | grep -E '^scripts/')
+
+if [ -n "$PY_FILES" ]; then
+  if command -v ruff &>/dev/null; then
+    # Format
+    echo "$PY_FILES" | xargs ruff format
+    echo "$PY_FILES" | xargs git add
+
+    # Lint (check only, don't auto-fix to avoid surprises)
+    if ! echo "$PY_FILES" | xargs ruff check; then
+      echo "ruff: lint errors found — fix them before committing"
+      STATUS=1
+    else
+      echo "ruff: $(echo "$PY_FILES" | wc -l) Python file(s) formatted and linted"
+    fi
+  else
+    echo "Warning: ruff not found, skipping Python formatting/linting"
+  fi
+fi
+
+exit $STATUS

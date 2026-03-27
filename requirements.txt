@@ -1,2 +1,4 @@
-chess>=1.10
-pygame>=2.5
+chess~=1.11
+pygame~=2.6
+ruff~=0.15
+clang-format~=22.1

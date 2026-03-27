@@ -40,7 +40,7 @@ bash scripts/verify_perft.sh   # Verify perft node counts against known values (
 - CMake 3.16+, C++20 (GCC 10+ / Clang 10+)
 - SDL2, SDL2_image: `sudo apt-get install libsdl2-dev libsdl2-image-dev`
 - Google Test (auto-fetched by CMake)
-- Python scripts: `pip install -r requirements.txt` (chess, pygame)
+- Python scripts + dev tools: `pip install -r requirements.txt` (chess, pygame, ruff, clang-format)
 
 ## Architecture
 
@@ -70,13 +70,13 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 
 ### Scripts (`scripts/`)
 
+- `setup.sh` — one-time dev setup (hooks + deps)
 - `animate_game.py` — pygame game viewer with sliding pieces and move arrows (reads PGN from `games/`)
 - `self_play_test.py` — engine self-play
 - `tournament.py` — multi-engine tournaments
 - `watch_game.py` — visualize games in progress
 - `diagnose.py` — engine diagnostics
-- `depth12_vs_stockfish6.py` — Stockfish benchmark
-- `test_preference.py` — preference testing
+- `depth12_vs_stockfish8.py` — Stockfish benchmark
 - `verify_perft.sh` — perft verification (used by CI)
 
 ## Critical Gotchas
@@ -120,7 +120,7 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 
 ## Code Formatting & Linting
 
-A git pre-commit hook auto-formats staged files and lint-checks Python before each commit.
+A pre-commit hook in `.githooks/` auto-formats staged files and lint-checks Python before each commit. After cloning, run `bash scripts/setup.sh` to configure hooks and install deps.
 
 - **C++**: `clang-format` (Google-based, 2-space indent, 100 col). Config: `.clang-format`
 - **Python**: `ruff` format + lint (E/W/F/I/UP/B/SIM rules, 100 col). Config: `pyproject.toml`
@@ -130,8 +130,6 @@ A git pre-commit hook auto-formats staged files and lint-checks Python before ea
 find src/ inc/ test/ -name "*.cpp" -o -name "*.h" | xargs clang-format -i
 ruff format scripts/ && ruff check scripts/ --fix
 ```
-
-Install tools: `pip install clang-format ruff`
 
 ## Build System Notes
 
