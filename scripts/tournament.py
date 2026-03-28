@@ -27,6 +27,7 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DEFAULT_SYZYGY_PATH = os.path.join(PROJECT_ROOT, "syzygy")
 DEFAULT_BOOK_PATH = os.path.join(PROJECT_ROOT, "books", "Titans.bin")
 DEFAULT_ENGINE_LOG_DIR = os.path.join(PROJECT_ROOT, "logs", "engines")
+DEFAULT_TOURNAMENT_THREADS = "4"
 
 
 def _sanitize_filename(name: str) -> str:
@@ -125,6 +126,7 @@ class Engine:
         self.stderr_dir = stderr_dir
         self.stderr_log_path: str | None = None
         self._stderr_handle = None
+        self._advertised_options: set[str] = set()
 
         # Auto-enable Syzygy tablebases if available and not already set
         if use_syzygy and "SyzygyPath" not in self.options and os.path.isdir(DEFAULT_SYZYGY_PATH):
@@ -164,10 +166,17 @@ class Engine:
 
             # Initialize UCI
             self._send("uci")
-            self._wait_for("uciok")
+            self._advertised_options = self._read_uci_options()
 
             # Set options
-            for key, value in self.options.items():
+            effective_options = dict(self.options)
+            if (
+                "Threads" not in effective_options
+                and "Threads" in self._advertised_options
+            ):
+                effective_options["Threads"] = DEFAULT_TOURNAMENT_THREADS
+
+            for key, value in effective_options.items():
                 self._send(f"setoption name {key} value {value}")
 
             self._send("isready")
@@ -240,6 +249,28 @@ class Engine:
             self.process.stdin.flush()
         except (BrokenPipeError, OSError) as exc:
             raise RuntimeError(self._exit_error(f"while sending '{command}'")) from exc
+
+    def _read_uci_options(self, timeout: float = 30.0) -> set[str]:
+        """Read UCI handshake output and return advertised option names."""
+        assert self.process is not None and self.process.stdout is not None
+        options: set[str] = set()
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            line = self.process.stdout.readline()
+            if line == "" and self.process.poll() is not None:
+                raise RuntimeError(self._exit_error("while waiting for 'uciok'"))
+
+            line = line.strip()
+            if line.startswith("option name "):
+                payload = line[len("option name ") :]
+                if " type " in payload:
+                    options.add(payload.split(" type ", 1)[0])
+
+            if line.startswith("uciok"):
+                return options
+
+        raise TimeoutError(f"Timed out waiting for 'uciok' from engine '{self.name}'")
 
     def _wait_for(self, expected: str, timeout: float = 30.0) -> str | None:
         """Wait for expected response from engine"""
