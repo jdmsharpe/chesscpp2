@@ -13,7 +13,7 @@ An improved chess engine implementation using bitboards for fast move generation
 - **Magic bitboards** - Ultra-fast sliding piece (rook, bishop, queen) move generation
 - **Fast move generation** - Optimized legal move generation using bit operations
 - **AI with alpha-beta pruning** - Minimax search with Lazy SMP multi-threading, staged move generation (MovePicker), shared lockless transposition table, logarithmic LMR, singular extensions, killer/history/countermove heuristics, adaptive null move pruning, aspiration windows, and quiescence search
-- **Lazy SMP multi-threading** - Parallel search with shared transposition table, per-thread search heuristics, depth-skip diversity, LMR/null-move variation; configurable 1-256 threads
+- **Lazy SMP multi-threading** - Parallel search with shared transposition table, per-thread search heuristics, depth-skip diversity, best-thread result selection, helper aspiration-window variation, LMR/null-move variation; configurable 1-256 threads
 - **Stack-allocated move lists** - Zero-heap-allocation `MoveList` using fixed-capacity arrays for all move generation hot paths (+11% NPS)
 - **Incremental evaluation** - PST scores and material maintained incrementally in make/unmake for O(1) eval lookups; tapered eval, pawn hash table, and king safety attack units
 - **UCI protocol** - Integration with chess GUIs and tournament software
@@ -338,7 +338,7 @@ Potential improvements:
 - [x] Futility pruning fix (no longer incorrectly applied at PV nodes)
 - [x] Incremental PST and material tracking (O(1) eval lookups via Position accumulators, shared PST.h)
 - [x] TT prefetching (`__builtin_prefetch` on TT bucket before probe, hides memory latency)
-- [x] Lazy SMP multithreading (shared lockless TT, per-thread heuristics, depth-skip diversity, UCI `Threads` option)
+- [x] Lazy SMP multithreading (shared lockless TT, per-thread heuristics, depth-skip diversity, best-thread result selection, helper aspiration variation, UCI `Threads` option)
 - [ ] NNUE evaluation (neural network-based eval for major strength gain)
 - [ ] Endgame-specific knowledge (K+R vs K technique, opposition, pawn endgame rules)
 

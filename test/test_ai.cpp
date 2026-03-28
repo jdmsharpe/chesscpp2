@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -338,48 +339,63 @@ TEST_F(AITest, MultiThread_FindsMateInOne) {
 }
 
 TEST_F(AITest, MultiThread_NodeCountIncludesAllThreads) {
-  // With multiple threads, total node count should exceed single-thread count.
+  // When the main thread is artificially stalled, helper threads should still
+  // contribute substantial extra work.
   Position pos;
   ASSERT_TRUE(
       pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"));
 
+  auto stallMainThread = [](Move, int, const Position&) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  };
+
   AI ai1(8);
   ai1.clearTT();
   ai1.setThreads(1);
-  ai1.findBestMove(pos);
+  ai1.setMoveCallback(stallMainThread);
+  ai1.findBestMove(pos, 300);
   uint64_t nodes1 = ai1.getNodesSearched();
 
   AI ai4(8);
   ai4.clearTT();
   ai4.setThreads(4);
-  ai4.findBestMove(pos);
+  ai4.setMoveCallback(stallMainThread);
+  ai4.findBestMove(pos, 300);
   uint64_t nodes4 = ai4.getNodesSearched();
 
-  EXPECT_GT(nodes4, nodes1) << "4-thread search (" << nodes4
-                            << " nodes) should examine more total nodes than 1-thread (" << nodes1
-                            << " nodes)";
+  EXPECT_GT(nodes4, nodes1)
+      << "Helper threads should continue searching when the main thread is stalled (" << nodes4
+      << " vs " << nodes1 << " nodes)";
 }
 
 TEST_F(AITest, MultiThread_TTHitsIncrease) {
-  // Multi-threading should increase TT hits due to shared table.
+  // Shared TT traffic should increase when helpers keep searching while the
+  // main thread is stalled.
   Position pos;
   ASSERT_TRUE(
       pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"));
 
+  auto stallMainThread = [](Move, int, const Position&) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  };
+
   AI ai1(8);
   ai1.clearTT();
   ai1.setThreads(1);
-  ai1.findBestMove(pos);
+  ai1.setMoveCallback(stallMainThread);
+  ai1.findBestMove(pos, 300);
   uint64_t hits1 = ai1.getTTHits();
 
   AI ai4(8);
   ai4.clearTT();
   ai4.setThreads(4);
-  ai4.findBestMove(pos);
+  ai4.setMoveCallback(stallMainThread);
+  ai4.findBestMove(pos, 300);
   uint64_t hits4 = ai4.getTTHits();
 
-  EXPECT_GT(hits4, hits1) << "4-thread TT hits (" << hits4 << ") should exceed 1-thread (" << hits1
-                          << ")";
+  EXPECT_GT(hits4, hits1)
+      << "Helper threads should generate more shared-TT traffic when the main thread is stalled ("
+      << hits4 << " vs " << hits1 << " hits)";
 }
 
 TEST_F(AITest, MultiThread_TimeManagementStopsAllThreads) {
@@ -401,6 +417,28 @@ TEST_F(AITest, MultiThread_TimeManagementStopsAllThreads) {
   EXPECT_TRUE(isLegalMove(pos, best));
   EXPECT_LT(elapsed, 2000) << "Multi-threaded search took " << elapsed
                            << "ms, expected < 2000ms with 300ms limit";
+}
+
+TEST_F(AITest, MultiThread_SelectsHelperResultWhenMainThreadStalls) {
+  // Slow the main thread via the root-move callback and ensure the final move
+  // can still come from a deeper helper iteration.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN(STARTING_FEN));
+
+  AI ai(8);
+  ai.clearTT();
+  ai.setThreads(4);
+  ai.setMoveCallback([](Move, int, const Position&) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(15));
+  });
+
+  Move best = ai.findBestMove(pos, 200);
+
+  EXPECT_NE(best, 0);
+  EXPECT_TRUE(isLegalMove(pos, best));
+  EXPECT_GT(ai.getLastSelectedDepth(), 0);
+  EXPECT_NE(ai.getLastSelectedThreadId(), 0)
+      << "A stalled main thread should allow a helper thread to supply the final result";
 }
 
 TEST_F(AITest, MultiThread_SetThreadsConfig) {

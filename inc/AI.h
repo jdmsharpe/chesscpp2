@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <functional>
+#include <limits>
 #include <optional>
 #include <string>
 #include <thread>
@@ -30,7 +31,8 @@ struct ThreadData {
 
   // Results
   Move bestMove = 0;
-  int bestScore = 0;
+  int bestScore = std::numeric_limits<int>::min();
+  int completedDepth = 0;
   uint64_t nodesSearched = 0;
   uint64_t ttHits = 0;
 
@@ -41,7 +43,8 @@ struct ThreadData {
     pvTable = {};
     pvLength = {};
     bestMove = 0;
-    bestScore = 0;
+    bestScore = std::numeric_limits<int>::min();
+    completedDepth = 0;
     nodesSearched = 0;
     ttHits = 0;
   }
@@ -74,6 +77,8 @@ class AI {
   // Get statistics from last search (sum across all threads)
   uint64_t getNodesSearched() const;
   uint64_t getTTHits() const;
+  int getLastSelectedThreadId() const { return lastSelectedThreadId; }
+  int getLastSelectedDepth() const { return lastSelectedDepth; }
 
   // Resize transposition table (in MB)
   void resizeTT(size_t mb) {
@@ -128,6 +133,8 @@ class AI {
 
   // Thread pool
   std::vector<ThreadData> threads;
+  int lastSelectedThreadId = 0;
+  int lastSelectedDepth = 0;
 
   // --- Contempt (phase-scaled draw score) ---
   static constexpr int CONTEMPT_MAX = 15;
@@ -173,6 +180,20 @@ class AI {
     bool found = false;
   };
 
+  struct RootWindow {
+    int alpha = 0;
+    int beta = 0;
+    bool narrowed = false;
+  };
+
+  struct RootSearchResult {
+    Move bestMove = 0;
+    int bestScore = std::numeric_limits<int>::min();
+    bool completed = false;
+    bool failLow = false;
+    bool failHigh = false;
+  };
+
   // --- LMR table ---
   static int lmrTable[64][64];
   static bool lmrInitialized;
@@ -191,6 +212,9 @@ class AI {
   // --- Search functions (all take ThreadData& for thread-local state) ---
   int negamax(ThreadData& td, int depth, int alpha, int beta, int ply, Move excludedMove = 0);
   int quiescence(ThreadData& td, int alpha, int beta, int qsDepth = 0);
+  RootWindow getRootAspirationWindow(const ThreadData& td, int currentDepth) const;
+  RootSearchResult searchRoot(ThreadData& td, const MoveList& rootMoves, int currentDepth,
+                              int alpha, int beta, bool reportRootMoves);
 
   // Move ordering for root moves
   ScoredMoveList orderMoves(ThreadData& td, const MoveList& moves, int ply, Move ttMove = 0);

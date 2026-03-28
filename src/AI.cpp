@@ -16,6 +16,16 @@
 #include <sstream>
 #include <thread>
 
+namespace {
+
+constexpr int ROOT_FULL_ALPHA = std::numeric_limits<int>::min() + 1;
+constexpr int ROOT_FULL_BETA = std::numeric_limits<int>::max() - 1;
+constexpr int MAIN_ASPIRATION_WINDOW = 50;
+constexpr int HELPER_WIDE_ASPIRATION_WINDOW = 75;
+constexpr int HELPER_NARROW_ASPIRATION_WINDOW = 35;
+
+}  // namespace
+
 // Strip halfmove clock and fullmove counter from a FEN string so that
 // transpositions (same position, different move numbers) share a book key.
 static std::string fenPositionKey(const std::string& fen) {
@@ -196,12 +206,15 @@ bool AI::hasPolyglotBook() const {
 // =============================================================================
 Move AI::findBestMove(Position& pos, int timeMs) {
   timeLimit = timeMs;
-  searchStartTime = currentTimeMs();
-  stopSearch.store(false);
   return findBestMove(pos);
 }
 
 Move AI::findBestMove(Position& pos) {
+  searchStartTime = currentTimeMs();
+  stopSearch.store(false);
+  lastSelectedThreadId = 0;
+  lastSelectedDepth = 0;
+
   // Check opening books if enabled and within move limit
   bool inBookRange = useOwnBook && (bookMoveLimit == 0 || pos.fullmoveNumber() <= bookMoveLimit);
 
@@ -262,6 +275,7 @@ Move AI::findBestMove(Position& pos) {
     threads[t].threadId = t;
     threads[t].pos = pos;
     threads[t].clear();
+    threads[t].bestMove = rootMoves[0];
   }
 
   // Launch helper threads (Lazy SMP: independent searches sharing TT)
@@ -272,8 +286,6 @@ Move AI::findBestMove(Position& pos) {
 
   // Main thread (thread 0) does the iterative deepening with reporting
   ThreadData& td = threads[0];
-  td.bestMove = rootMoves[0];
-  td.bestScore = std::numeric_limits<int>::min();
 
   std::cout << "Using iterative deepening";
   if (numThreads > 1) std::cout << " (" << numThreads << " threads)";
@@ -281,69 +293,43 @@ Move AI::findBestMove(Position& pos) {
 
   for (int currentDepth = 1; currentDepth <= depth; ++currentDepth) {
     if (shouldStop()) {
-      std::cout << "  Time limit reached, stopping at depth " << (currentDepth - 1) << "\n";
+      std::cout << "  Time limit reached, stopping at depth " << td.completedDepth << "\n";
       break;
     }
 
-    // Aspiration windows
-    int alpha, beta;
-    if (currentDepth >= 5 && td.bestScore != std::numeric_limits<int>::min()) {
-      const int ASPIRATION_WINDOW = 50;
-      alpha = td.bestScore - ASPIRATION_WINDOW;
-      beta = td.bestScore + ASPIRATION_WINDOW;
-    } else {
-      alpha = std::numeric_limits<int>::min() + 1;
-      beta = std::numeric_limits<int>::max() - 1;
-    }
-
     // Order moves based on previous iteration
-    ScoredMoveList scoredRootMoves = orderMoves(td, rootMoves, 0, td.bestMove);
+    Move previousBestMove = (td.completedDepth > 0) ? td.bestMove : Move(0);
+    ScoredMoveList scoredRootMoves = orderMoves(td, rootMoves, 0, previousBestMove);
     rootMoves.clear();
     for (size_t ri = 0; ri < scoredRootMoves.size(); ++ri) {
       rootMoves.push_back(scoredRootMoves[ri].move);
     }
 
-    Move iterBestMove = rootMoves[0];
-    int iterBestScore = std::numeric_limits<int>::min();
+    RootWindow window = getRootAspirationWindow(td, currentDepth);
 
     std::cout << "  Depth " << currentDepth << ": ";
     std::cout.flush();
 
-    for (size_t mi = 0; mi < rootMoves.size(); ++mi) {
-      Move move = rootMoves[mi];
-      std::cout << moveToString(move) << " ";
+    RootSearchResult result =
+        searchRoot(td, rootMoves, currentDepth, window.alpha, window.beta, true);
+    if (!result.completed) {
+      std::cout << "\n  Time limit reached, keeping depth " << td.completedDepth << "\n";
+      break;
+    }
+
+    if (window.narrowed && (result.failLow || result.failHigh)) {
+      std::cout << " [re-search " << moveToString(result.bestMove) << "]";
       std::cout.flush();
-
-      if (moveCallback) {
-        moveCallback(move, currentDepth, td.pos);
+      result = searchRoot(td, rootMoves, currentDepth, ROOT_FULL_ALPHA, ROOT_FULL_BETA, false);
+      if (!result.completed) {
+        std::cout << "\n  Time limit reached, keeping depth " << td.completedDepth << "\n";
+        break;
       }
-
-      td.pos.makeMove(move);
-      int score = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
-      td.pos.unmakeMove();
-
-      if (score > iterBestScore) {
-        iterBestScore = score;
-        iterBestMove = move;
-      }
-
-      alpha = std::max(alpha, score);
     }
 
-    // Re-search with wider window on aspiration failure
-    if (currentDepth >= 5 &&
-        (iterBestScore <= td.bestScore - 50 || iterBestScore >= td.bestScore + 50)) {
-      std::cout << " [re-search " << moveToString(iterBestMove) << "]";
-      alpha = std::numeric_limits<int>::min() + 1;
-      beta = std::numeric_limits<int>::max() - 1;
-
-      td.pos.makeMove(iterBestMove);
-      iterBestScore = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
-      td.pos.unmakeMove();
-    }
-
-    td.bestMove = iterBestMove;
-    td.bestScore = iterBestScore;
+    td.bestMove = result.bestMove;
+    td.bestScore = result.bestScore;
+    td.completedDepth = currentDepth;
 
     uint64_t totalNodes = getNodesSearched();
     uint64_t totalTTHits = getTTHits();
@@ -356,12 +342,39 @@ Move AI::findBestMove(Position& pos) {
   stopSearch.store(true);
   for (auto& h : helpers) h.join();
 
+  const ThreadData* selected = &threads[0];
+  for (const ThreadData& candidate : threads) {
+    if (candidate.completedDepth > selected->completedDepth) {
+      selected = &candidate;
+      continue;
+    }
+
+    if (candidate.completedDepth == selected->completedDepth &&
+        candidate.bestScore > selected->bestScore) {
+      selected = &candidate;
+      continue;
+    }
+
+    if (candidate.completedDepth == selected->completedDepth &&
+        candidate.bestScore == selected->bestScore && candidate.threadId < selected->threadId) {
+      selected = &candidate;
+    }
+  }
+
+  Move finalMove = (selected->bestMove != 0) ? selected->bestMove : rootMoves[0];
+  int finalScore = (selected->completedDepth > 0) ? selected->bestScore : 0;
+  lastSelectedThreadId = selected->threadId;
+  lastSelectedDepth = selected->completedDepth;
+
   uint64_t totalNodes = getNodesSearched();
   uint64_t totalTTHits = getTTHits();
-  std::cout << "Best move: " << moveToString(td.bestMove) << " (score: " << td.bestScore << ")\n";
+  std::cout << "Best move: " << moveToString(finalMove) << " (score: " << finalScore
+            << ", depth: " << selected->completedDepth;
+  if (numThreads > 1) std::cout << ", thread: " << selected->threadId;
+  std::cout << ")\n";
   std::cout << "Total nodes: " << totalNodes << ", TT hits: " << totalTTHits << "\n";
 
-  return td.bestMove;
+  return finalMove;
 }
 
 // =============================================================================
@@ -382,8 +395,84 @@ static constexpr bool skipTable[SKIP_ROWS][SKIP_COLS] = {
     {true, false, false, false, true, false, true, false},   // thread 6+
 };
 
+AI::RootWindow AI::getRootAspirationWindow(const ThreadData& td, int currentDepth) const {
+  RootWindow window{ROOT_FULL_ALPHA, ROOT_FULL_BETA, false};
+  if (currentDepth < 5 || td.completedDepth == 0) return window;
+
+  int aspiration = MAIN_ASPIRATION_WINDOW;
+  if (td.threadId > 0) {
+    switch ((td.threadId - 1) % 3) {
+      case 0:
+        aspiration = HELPER_WIDE_ASPIRATION_WINDOW;
+        break;
+      case 1:
+        aspiration = HELPER_NARROW_ASPIRATION_WINDOW;
+        break;
+      case 2:
+        if (currentDepth % 3 == 0) return window;
+        break;
+    }
+  }
+
+  window.alpha = td.bestScore - aspiration;
+  window.beta = td.bestScore + aspiration;
+  window.narrowed = true;
+  return window;
+}
+
+AI::RootSearchResult AI::searchRoot(ThreadData& td, const MoveList& rootMoves, int currentDepth,
+                                    int alpha, int beta, bool reportRootMoves) {
+  RootSearchResult result;
+  result.bestMove = rootMoves[0];
+  int alphaOrig = alpha;
+
+  for (size_t mi = 0; mi < rootMoves.size(); ++mi) {
+    if (stopSearch.load(std::memory_order_relaxed) || shouldStop()) {
+      stopSearch.store(true, std::memory_order_relaxed);
+      return result;
+    }
+
+    Move move = rootMoves[mi];
+    if (reportRootMoves) {
+      std::cout << moveToString(move) << " ";
+      std::cout.flush();
+
+      if (moveCallback) {
+        moveCallback(move, currentDepth, td.pos);
+      }
+    }
+
+    td.pos.makeMove(move);
+    int score = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
+    td.pos.unmakeMove();
+
+    if (stopSearch.load(std::memory_order_relaxed)) {
+      return result;
+    }
+
+    if (score > result.bestScore) {
+      result.bestScore = score;
+      result.bestMove = move;
+    }
+
+    alpha = std::max(alpha, score);
+    if (score >= beta) {
+      result.completed = true;
+      result.failHigh = true;
+      return result;
+    }
+  }
+
+  result.completed = true;
+  if (result.bestScore <= alphaOrig) {
+    result.failLow = true;
+  }
+  return result;
+}
+
 void AI::helperThreadSearch(ThreadData& td, const MoveList& rootMoves, int maxDepth) {
   int row = (td.threadId - 1) % SKIP_ROWS;
+  MoveList orderedRootMoves = rootMoves;
 
   for (int currentDepth = 1; currentDepth <= maxDepth; ++currentDepth) {
     if (stopSearch.load(std::memory_order_relaxed)) return;
@@ -393,22 +482,27 @@ void AI::helperThreadSearch(ThreadData& td, const MoveList& rootMoves, int maxDe
       continue;
     }
 
-    int alpha = std::numeric_limits<int>::min() + 1;
-    int beta = std::numeric_limits<int>::max() - 1;
-
-    for (size_t mi = 0; mi < rootMoves.size(); ++mi) {
-      if (stopSearch.load(std::memory_order_relaxed)) return;
-
-      Move move = rootMoves[mi];
-      td.pos.makeMove(move);
-      int score = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
-      td.pos.unmakeMove();
-
-      if (score > td.bestScore) {
-        td.bestScore = score;
-        td.bestMove = move;
-      }
+    Move previousBestMove = (td.completedDepth > 0) ? td.bestMove : Move(0);
+    ScoredMoveList scoredRootMoves = orderMoves(td, orderedRootMoves, 0, previousBestMove);
+    orderedRootMoves.clear();
+    for (size_t ri = 0; ri < scoredRootMoves.size(); ++ri) {
+      orderedRootMoves.push_back(scoredRootMoves[ri].move);
     }
+
+    RootWindow window = getRootAspirationWindow(td, currentDepth);
+    RootSearchResult result =
+        searchRoot(td, orderedRootMoves, currentDepth, window.alpha, window.beta, false);
+    if (!result.completed) return;
+
+    if (window.narrowed && (result.failLow || result.failHigh)) {
+      result =
+          searchRoot(td, orderedRootMoves, currentDepth, ROOT_FULL_ALPHA, ROOT_FULL_BETA, false);
+      if (!result.completed) return;
+    }
+
+    td.bestMove = result.bestMove;
+    td.bestScore = result.bestScore;
+    td.completedDepth = currentDepth;
   }
 }
 
