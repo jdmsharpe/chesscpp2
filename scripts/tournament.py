@@ -27,7 +27,7 @@ PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DEFAULT_SYZYGY_PATH = os.path.join(PROJECT_ROOT, "syzygy")
 DEFAULT_BOOK_PATH = os.path.join(PROJECT_ROOT, "books", "Titans.bin")
 DEFAULT_ENGINE_LOG_DIR = os.path.join(PROJECT_ROOT, "logs", "engines")
-DEFAULT_TOURNAMENT_THREADS = "4"
+DEFAULT_TOURNAMENT_THREADS = "8"
 
 
 def _sanitize_filename(name: str) -> str:
