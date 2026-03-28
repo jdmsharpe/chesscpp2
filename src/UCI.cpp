@@ -11,6 +11,7 @@
 #include <sstream>
 
 UCI::UCI() : game(Game::HUMAN_VS_AI), searchDepth(6), debug(false) {
+  Logger::getInstance().setEnabled(false);
   game.setAIDepth(searchDepth);
 
   // Try multiple paths for opening book (depends on where engine is run from)
@@ -30,7 +31,9 @@ UCI::UCI() : game(Game::HUMAN_VS_AI), searchDepth(6), debug(false) {
   }
 }
 
-UCI::~UCI() {}
+UCI::~UCI() {
+  Logger::getInstance().setEnabled(false);
+}
 
 void UCI::loop() {
   Logger::getInstance().debug("UCI::loop() starting");
@@ -291,6 +294,7 @@ void UCI::handleSetOption(const std::string& args) {
     }
   } else if (name == "Debug") {
     debug = (value == "true");
+    Logger::getInstance().setEnabled(debug);
   } else if (name == "Depth") {
     searchDepth = std::stoi(value);
     game.setAIDepth(searchDepth);

@@ -414,7 +414,7 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
     return *score;
   }
 
-  bool isPVNode = (beta - alpha) > 1;
+  bool isPVNode = (static_cast<long long>(beta) - static_cast<long long>(alpha)) > 1;
 
   // [Improvement 10] Fix: futility pruning NOT applied at PV nodes
   auto pruning = canPrune(pos, depth, alpha, beta, isPVNode);
@@ -826,7 +826,7 @@ std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*
 
     // Eval-based boost: if static eval is well above beta, increase R
     int eval = Eval::evaluate(pos);
-    if (eval > beta + 200) R++;
+    if (static_cast<long long>(eval) > static_cast<long long>(beta) + 200) R++;
 
     R = std::min(R, depth - 1);  // Don't reduce below depth 1
 

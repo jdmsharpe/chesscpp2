@@ -2,6 +2,7 @@
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Polyglot.h"
+#include "PolyglotTestUtils.h"
 #include "Position.h"
 #include "Zobrist.h"
 
@@ -64,6 +65,122 @@ TEST_F(PolyglotTest, Probe_UnloadedBook) {
   // Should return 0 (no move) when book is not loaded
   Move move = book.probe(pos);
   EXPECT_EQ(move, 0u);
+}
+
+TEST_F(PolyglotTest, Load_TruncatedFileFails) {
+  testutil::ScopedTempBookFile bookFile("polyglot_truncated");
+  ASSERT_TRUE(
+      testutil::writeRawBytes(bookFile.path(), {0x46, 0x3B, 0x96, 0x18, 0x16, 0x91, 0xFC, 0x9C}));
+
+  PolyglotBook book;
+  EXPECT_FALSE(book.load(bookFile.path().string()));
+  EXPECT_FALSE(book.isLoaded());
+  EXPECT_EQ(book.size(), 0u);
+}
+
+TEST_F(PolyglotTest, Probe_ReturnsValidBookMove) {
+  Position pos;
+  pos.setFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+  testutil::ScopedTempBookFile bookFile("polyglot_valid_probe");
+  const uint64_t key = PolyglotBook::computeHash(pos);
+  ASSERT_TRUE(testutil::writePolyglotBook(bookFile.path(),
+                                          {{key, testutil::encodePolyglotMove("e2e4"), 20, 0}}));
+
+  PolyglotBook book;
+  ASSERT_TRUE(book.load(bookFile.path().string()));
+
+  EXPECT_EQ(book.probe(pos), testutil::findLegalMove(pos, "e2e4"));
+}
+
+TEST_F(PolyglotTest, GetMoves_ReturnsDuplicateKeyRangeSortedByWeight) {
+  Position pos;
+  pos.setFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+  Position otherPos;
+  otherPos.setFromFEN("r1bqkbnr/pppppppp/2n5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2");
+
+  testutil::ScopedTempBookFile bookFile("polyglot_duplicate_range");
+  const uint64_t startKey = PolyglotBook::computeHash(pos);
+  const uint64_t otherKey = PolyglotBook::computeHash(otherPos);
+  ASSERT_TRUE(testutil::writePolyglotBook(
+      bookFile.path(), {
+                           {otherKey, testutil::encodePolyglotMove("g1f3"), 7, 0},
+                           {startKey, testutil::encodePolyglotMove("e2e4"), 10, 0},
+                           {startKey, testutil::encodePolyglotMove("d2d4"), 40, 0},
+                       }));
+
+  PolyglotBook book;
+  ASSERT_TRUE(book.load(bookFile.path().string()));
+
+  auto moves = book.getMoves(pos);
+  ASSERT_EQ(moves.size(), 2u);
+  EXPECT_EQ(moves[0].first, testutil::findLegalMove(pos, "d2d4"));
+  EXPECT_EQ(moves[0].second, 40);
+  EXPECT_EQ(moves[1].first, testutil::findLegalMove(pos, "e2e4"));
+  EXPECT_EQ(moves[1].second, 10);
+}
+
+TEST_F(PolyglotTest, Probe_IgnoresIllegalBookMove) {
+  Position pos;
+  pos.setFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+  testutil::ScopedTempBookFile bookFile("polyglot_illegal_move");
+  const uint64_t key = PolyglotBook::computeHash(pos);
+  ASSERT_TRUE(testutil::writePolyglotBook(bookFile.path(),
+                                          {
+                                              {key, testutil::encodePolyglotMove("e2e5"), 100, 0},
+                                              {key, testutil::encodePolyglotMove("d2d4"), 10, 0},
+                                          }));
+
+  PolyglotBook book;
+  ASSERT_TRUE(book.load(bookFile.path().string()));
+
+  auto moves = book.getMoves(pos);
+  ASSERT_EQ(moves.size(), 1u);
+  EXPECT_EQ(moves[0].first, testutil::findLegalMove(pos, "d2d4"));
+  EXPECT_EQ(book.probe(pos), testutil::findLegalMove(pos, "d2d4"));
+}
+
+TEST_F(PolyglotTest, Probe_ZeroWeightMovesReturnNoMove) {
+  Position pos;
+  pos.setFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+  testutil::ScopedTempBookFile bookFile("polyglot_zero_weight");
+  const uint64_t key = PolyglotBook::computeHash(pos);
+  ASSERT_TRUE(testutil::writePolyglotBook(bookFile.path(),
+                                          {{key, testutil::encodePolyglotMove("e2e4"), 0, 0}}));
+
+  PolyglotBook book;
+  ASSERT_TRUE(book.load(bookFile.path().string()));
+
+  EXPECT_EQ(book.probe(pos), 0u);
+}
+
+TEST_F(PolyglotTest, Probe_RepeatedlyReturnsOnlyLoadedBookMoves) {
+  Position pos;
+  pos.setFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+  const Move e2e4 = testutil::findLegalMove(pos, "e2e4");
+  const Move d2d4 = testutil::findLegalMove(pos, "d2d4");
+  ASSERT_NE(e2e4, 0u);
+  ASSERT_NE(d2d4, 0u);
+
+  testutil::ScopedTempBookFile bookFile("polyglot_repeated_probe");
+  const uint64_t key = PolyglotBook::computeHash(pos);
+  ASSERT_TRUE(testutil::writePolyglotBook(bookFile.path(),
+                                          {
+                                              {key, testutil::encodePolyglotMove("e2e4"), 30, 0},
+                                              {key, testutil::encodePolyglotMove("d2d4"), 20, 0},
+                                          }));
+
+  PolyglotBook book;
+  ASSERT_TRUE(book.load(bookFile.path().string()));
+
+  for (int i = 0; i < 500; ++i) {
+    const Move move = book.probe(pos);
+    EXPECT_TRUE(move == e2e4 || move == d2d4) << "Unexpected move at iteration " << i;
+  }
 }
 
 // =============================================================================

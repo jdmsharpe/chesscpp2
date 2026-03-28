@@ -234,13 +234,35 @@ bool PolyglotBook::load(const std::string& filename) {
     return false;
   }
 
+  file.seekg(0, std::ios::end);
+  const std::streamoff fileSize = file.tellg();
+  if (fileSize < 0) {
+    Logger::getInstance().warning("Could not determine Polyglot book size: " + filename);
+    return false;
+  }
+  if (fileSize == 0) {
+    Logger::getInstance().warning("Polyglot book is empty: " + filename);
+    return false;
+  }
+  if ((fileSize % 16) != 0) {
+    Logger::getInstance().warning("Polyglot book has a truncated record: " + filename);
+    return false;
+  }
+  file.seekg(0, std::ios::beg);
+
+  std::vector<PolyglotEntry> loadedEntries;
+  loadedEntries.reserve(static_cast<size_t>(fileSize / 16));
+
   // Read all entries
-  while (file.good()) {
+  while (file.peek() != std::char_traits<char>::eof()) {
     PolyglotEntry entry;
-    uint8_t bytes[16];
+    uint8_t bytes[16] = {};
 
     file.read(reinterpret_cast<char*>(bytes), 16);
-    if (file.gcount() != 16) break;
+    if (!file || file.gcount() != 16) {
+      Logger::getInstance().warning("Failed while reading Polyglot book record: " + filename);
+      return false;
+    }
 
     // Parse big-endian values
     entry.key = (uint64_t(bytes[0]) << 56) | (uint64_t(bytes[1]) << 48) |
@@ -253,12 +275,19 @@ bool PolyglotBook::load(const std::string& filename) {
     entry.learn = (uint32_t(bytes[12]) << 24) | (uint32_t(bytes[13]) << 16) |
                   (uint32_t(bytes[14]) << 8) | uint32_t(bytes[15]);
 
-    entries.push_back(entry);
+    loadedEntries.push_back(entry);
+  }
+
+  if (loadedEntries.empty()) {
+    Logger::getInstance().warning("Polyglot book contains no entries: " + filename);
+    return false;
   }
 
   // Sort by key for binary search
-  std::sort(entries.begin(), entries.end(),
+  std::sort(loadedEntries.begin(), loadedEntries.end(),
             [](const PolyglotEntry& a, const PolyglotEntry& b) { return a.key < b.key; });
+
+  entries = std::move(loadedEntries);
 
   Logger::getInstance().info("Loaded Polyglot book with " + std::to_string(entries.size()) +
                              " entries from " + filename);
@@ -266,21 +295,15 @@ bool PolyglotBook::load(const std::string& filename) {
 }
 
 std::pair<size_t, size_t> PolyglotBook::findEntries(uint64_t key) const {
-  // Binary search for first entry with this key
-  auto lower = std::lower_bound(entries.begin(), entries.end(), key,
-                                [](const PolyglotEntry& e, uint64_t k) { return e.key < k; });
+  if (entries.empty()) return {0, 0};
 
-  if (lower == entries.end() || lower->key != key) {
-    return {0, 0};  // Not found
-  }
+  const PolyglotEntry needle{key, 0, 0, 0};
+  auto [lower, upper] = std::equal_range(
+      entries.begin(), entries.end(), needle,
+      [](const PolyglotEntry& a, const PolyglotEntry& b) { return a.key < b.key; });
 
-  // Find range of entries with this key
-  auto upper = lower;
-  while (upper != entries.end() && upper->key == key) {
-    ++upper;
-  }
-
-  return {lower - entries.begin(), upper - entries.begin()};
+  return {static_cast<size_t>(lower - entries.begin()),
+          static_cast<size_t>(upper - entries.begin())};
 }
 
 uint64_t PolyglotBook::computeHash(const Position& pos) {
@@ -453,26 +476,27 @@ Move PolyglotBook::probe(const Position& pos) const {
   std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
 
   // Collect all moves with their weights
-  std::vector<std::pair<Move, uint32_t>> moves;
-  uint32_t totalWeight = 0;
+  std::vector<std::pair<Move, uint16_t>> moves;
+  moves.reserve(end - start);
+  uint64_t totalWeight = 0;
 
   for (size_t i = start; i < end; ++i) {
     Move m = convertMove(entries[i].move, pos, legalMoves);
-    if (m != 0) {
-      moves.push_back({m, entries[i].weight});
-      totalWeight += entries[i].weight;
-    }
+    if (m == 0) continue;
+    if (entries[i].weight == 0) continue;
+    moves.push_back({m, entries[i].weight});
+    totalWeight += entries[i].weight;
   }
 
-  if (moves.empty()) return 0;
+  if (moves.empty() || totalWeight == 0) return 0;
 
   // Weighted random selection
   static std::random_device rd;
   static std::mt19937 gen(rd());
-  std::uniform_int_distribution<uint32_t> dis(0, totalWeight - 1);
+  std::uniform_int_distribution<uint64_t> dis(0, totalWeight - 1);
 
-  uint32_t r = dis(gen);
-  uint32_t sum = 0;
+  uint64_t r = dis(gen);
+  uint64_t sum = 0;
 
   for (const auto& [move, weight] : moves) {
     sum += weight;

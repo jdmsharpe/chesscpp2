@@ -1,8 +1,9 @@
 # Worktrees
 .worktrees/
 
-# Build artifacts
+# Build output
 build/
+build-sanitize/
 *.o
 *.a
 *.so
@@ -44,3 +45,4 @@ books/
 
 # Saved game PGNs
 games/
+*.stderr.log

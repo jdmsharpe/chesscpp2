@@ -53,16 +53,19 @@ constexpr Bitboard RANK_8_BB = RANK_1_BB << 56;
 
 // Find least significant bit (LSB)
 [[nodiscard]] inline Square lsb(Bitboard bb) {
+  if (bb == 0) return NO_SQUARE;
   return Square(__builtin_ctzll(bb));
 }
 
 // Find most significant bit (MSB)
 [[nodiscard]] inline Square msb(Bitboard bb) {
+  if (bb == 0) return NO_SQUARE;
   return Square(63 - __builtin_clzll(bb));
 }
 
 // Pop LSB and return it
 inline Square popLsb(Bitboard& bb) {
+  if (bb == 0) return NO_SQUARE;
   Square sq = lsb(bb);
   bb &= bb - 1;  // Clear LSB
   return sq;

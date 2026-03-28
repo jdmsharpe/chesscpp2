@@ -6,9 +6,24 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
 endif()
 
+option(CHESSCPP2_ENABLE_SANITIZERS "Enable ASan/UBSan for engine and tests" OFF)
+
 # Compiler warnings (all build types)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+add_library(chesscpp2_sanitizers INTERFACE)
+if(CHESSCPP2_ENABLE_SANITIZERS)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(chesscpp2_sanitizers INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(chesscpp2_sanitizers INTERFACE -fsanitize=address,undefined)
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            target_link_libraries(chesscpp2_sanitizers INTERFACE stdc++ m)
+        endif()
+    else()
+        message(WARNING "CHESSCPP2_ENABLE_SANITIZERS is only supported with GCC or Clang")
+    endif()
 endif()
 
 # Find SDL2
@@ -20,6 +35,7 @@ add_library(fathom STATIC
     lib/Fathom/src/tbprobe.c
 )
 target_include_directories(fathom PUBLIC lib/Fathom/src)
+target_link_libraries(fathom PUBLIC chesscpp2_sanitizers)
 # Disable helper API since we use our own bitboard functions
 target_compile_definitions(fathom PRIVATE TB_NO_HELPER_API)
 # C99 standard for Fathom
@@ -48,10 +64,10 @@ add_executable(chesscpp2 ${SOURCES})
 target_include_directories(chesscpp2 PRIVATE inc ${SDL2_INCLUDE_DIRS} lib/Fathom/src)
 target_compile_features(chesscpp2 PRIVATE cxx_std_20)
 set_target_properties(chesscpp2 PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(chesscpp2 PRIVATE ${SDL2_LIBRARIES} SDL2_image fathom)
+target_link_libraries(chesscpp2 PRIVATE ${SDL2_LIBRARIES} SDL2_image fathom chesscpp2_sanitizers)
 
 # Performance flags for the engine (not applied to tests or debug builds)
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT CHESSCPP2_ENABLE_SANITIZERS)
     target_compile_options(chesscpp2 PRIVATE -O3 -march=native)
 endif()
 

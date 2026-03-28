@@ -3,12 +3,31 @@
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
+#include "Tablebase.h"
 #include "Zobrist.h"
 
 #include <chrono>
+#include <filesystem>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+namespace {
+
+std::filesystem::path findSyzygyDir() {
+  std::filesystem::path dir = std::filesystem::current_path();
+  for (int i = 0; i < 6; ++i) {
+    std::filesystem::path candidate = dir / "syzygy";
+    if (std::filesystem::is_directory(candidate)) {
+      return candidate;
+    }
+    if (!dir.has_parent_path()) break;
+    dir = dir.parent_path();
+  }
+  return {};
+}
+
+}  // namespace
 
 class AITest : public ::testing::Test {
  protected:
@@ -273,7 +292,7 @@ TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
   // Even without tablebases loaded, the engine should handle simple endgame
   // positions correctly (K+Q vs K should find checkmate at sufficient depth).
   Position pos;
-  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K1Q4/8/k7 w - - 0 1"));
 
   AI ai(6);
   ai.clearTT();
@@ -281,4 +300,26 @@ TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
 
   // Must return a legal move
   EXPECT_TRUE(isLegalMove(pos, best)) << "Engine must return a legal move in K+Q vs K endgame";
+}
+
+TEST_F(AITest, ProbeWDLHandlesNonzeroHalfmoveClock) {
+  std::filesystem::path syzygyDir = findSyzygyDir();
+  if (syzygyDir.empty()) {
+    GTEST_SKIP() << "No local syzygy directory found";
+  }
+
+  Tablebase::free();
+  if (!Tablebase::init(syzygyDir.string())) {
+    GTEST_SKIP() << "Failed to initialize tablebases from " << syzygyDir.string();
+  }
+
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K1Q4/8/k7 w - - 37 1"));
+  ASSERT_TRUE(Tablebase::canProbe(pos));
+
+  TBResult result = Tablebase::probeWDL(pos);
+  Tablebase::free();
+
+  EXPECT_TRUE(result == TB_RESULT_WIN || result == TB_RESULT_CURSED_WIN)
+      << "Expected a won KQvK tablebase result with nonzero halfmove clock, got " << result;
 }

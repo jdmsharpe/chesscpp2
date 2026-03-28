@@ -42,6 +42,7 @@ syzygy/
 ## Build output
 
 build/
+build-sanitize/
 
 ## Game PGN files
 

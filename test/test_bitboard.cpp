@@ -78,3 +78,12 @@ TEST_F(BitboardTest, FilesAndRanks) {
   EXPECT_TRUE(BB::testBit(rank4, A4));
   EXPECT_TRUE(BB::testBit(rank4, H4));
 }
+
+TEST_F(BitboardTest, EmptyBitScansReturnNoSquare) {
+  Bitboard bb = BB::EMPTY;
+
+  EXPECT_EQ(BB::lsb(bb), NO_SQUARE);
+  EXPECT_EQ(BB::msb(bb), NO_SQUARE);
+  EXPECT_EQ(BB::popLsb(bb), NO_SQUARE);
+  EXPECT_EQ(bb, BB::EMPTY);
+}

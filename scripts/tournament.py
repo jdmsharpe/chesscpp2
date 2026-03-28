@@ -3,12 +3,16 @@
 UCI Chess Tournament Framework
 """
 
+import contextlib
 import os
+import re
 import shlex
+import signal
 import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 
 try:
     import chess
@@ -22,6 +26,23 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
 DEFAULT_SYZYGY_PATH = os.path.join(PROJECT_ROOT, "syzygy")
 DEFAULT_BOOK_PATH = os.path.join(PROJECT_ROOT, "books", "Titans.bin")
+DEFAULT_ENGINE_LOG_DIR = os.path.join(PROJECT_ROOT, "logs", "engines")
+
+
+def _sanitize_filename(name: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._")
+    return safe or "engine"
+
+
+def _format_returncode(returncode: int) -> str:
+    if returncode < 0:
+        signum = -returncode
+        try:
+            signal_name = signal.Signals(signum).name
+        except ValueError:
+            signal_name = f"SIG{signum}"
+        return f"signal {signal_name} ({returncode})"
+    return f"exit code {returncode}"
 
 
 @dataclass
@@ -95,11 +116,15 @@ class Engine:
         options: dict[str, str] | None = None,
         use_syzygy: bool = True,
         use_book: bool = True,
+        stderr_dir: str | None = DEFAULT_ENGINE_LOG_DIR,
     ):
         self.name = name
         self.path = path
         self.options = options or {}
         self.process = None
+        self.stderr_dir = stderr_dir
+        self.stderr_log_path: str | None = None
+        self._stderr_handle = None
 
         # Auto-enable Syzygy tablebases if available and not already set
         if use_syzygy and "SyzygyPath" not in self.options and os.path.isdir(DEFAULT_SYZYGY_PATH):
@@ -111,33 +136,64 @@ class Engine:
 
     def start(self):
         """Start the engine process"""
-        self.process = subprocess.Popen(
-            shlex.split(self.path),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1,
-        )
-        assert self.process.stdin is not None and self.process.stdout is not None
+        stderr_target = subprocess.DEVNULL
+        self.stderr_log_path = None
+        self._close_stderr_handle()
 
-        # Initialize UCI
-        self._send("uci")
-        self._wait_for("uciok")
+        if self.stderr_dir is not None:
+            os.makedirs(self.stderr_dir, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_name = _sanitize_filename(self.name)
+            log_name = f"{safe_name}_{ts}_{id(self):x}.stderr.log"
+            self.stderr_log_path = os.path.join(self.stderr_dir, log_name)
+            self._stderr_handle = Path(self.stderr_log_path).open(  # noqa: SIM115
+                "w", encoding="utf-8", buffering=1
+            )
+            stderr_target = self._stderr_handle
 
-        # Set options
-        for key, value in self.options.items():
-            self._send(f"setoption name {key} value {value}")
+        try:
+            self.process = subprocess.Popen(
+                shlex.split(self.path),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=stderr_target,
+                text=True,
+                bufsize=1,
+            )
+            assert self.process.stdin is not None and self.process.stdout is not None
 
-        self._send("isready")
-        self._wait_for("readyok")
+            # Initialize UCI
+            self._send("uci")
+            self._wait_for("uciok")
+
+            # Set options
+            for key, value in self.options.items():
+                self._send(f"setoption name {key} value {value}")
+
+            self._send("isready")
+            self._wait_for("readyok")
+        except Exception:
+            self.stop()
+            raise
 
     def stop(self):
         """Stop the engine process"""
         if self.process:
-            self._send("quit")
-            self.process.wait(timeout=2)
-            self.process = None
+            try:
+                if self.process.poll() is None and self.process.stdin is not None:
+                    self.process.stdin.write("quit\n")
+                    self.process.stdin.flush()
+                    self.process.wait(timeout=2)
+                elif self.process.poll() is None:
+                    self.process.wait(timeout=2)
+            except (BrokenPipeError, OSError, subprocess.TimeoutExpired):
+                if self.process.poll() is None:
+                    self.process.kill()
+                    self.process.wait(timeout=2)
+            finally:
+                self._close_process()
+        else:
+            self._close_stderr_handle()
 
     def new_game(self):
         """Start a new game"""
@@ -178,21 +234,52 @@ class Engine:
         """Send command to engine"""
         assert self.process is not None and self.process.stdin is not None
         if self.process.poll() is not None:
-            raise RuntimeError(
-                f"Engine '{self.name}' exited with code {self.process.returncode} before receiving '{command}'"
-            )
-        self.process.stdin.write(command + "\n")
-        self.process.stdin.flush()
+            raise RuntimeError(self._exit_error(f"before receiving '{command}'"))
+        try:
+            self.process.stdin.write(command + "\n")
+            self.process.stdin.flush()
+        except (BrokenPipeError, OSError) as exc:
+            raise RuntimeError(self._exit_error(f"while sending '{command}'")) from exc
 
     def _wait_for(self, expected: str, timeout: float = 30.0) -> str | None:
         """Wait for expected response from engine"""
         assert self.process is not None and self.process.stdout is not None
         start_time = time.time()
         while time.time() - start_time < timeout:
-            line = self.process.stdout.readline().strip()
+            line = self.process.stdout.readline()
+            if line == "" and self.process.poll() is not None:
+                raise RuntimeError(self._exit_error(f"while waiting for '{expected}'"))
+            line = line.strip()
             if line.startswith(expected):
                 return line
         return None
+
+    def _exit_error(self, context: str) -> str:
+        assert self.process is not None
+        returncode = self.process.returncode
+        if returncode is None:
+            polled = self.process.poll()
+            returncode = polled if polled is not None else 0
+
+        message = f"Engine '{self.name}' exited with {_format_returncode(returncode)} {context}"
+        if self.stderr_log_path:
+            message += f" (stderr log: {self.stderr_log_path})"
+        return message
+
+    def _close_process(self):
+        assert self.process is not None
+        for stream in (self.process.stdin, self.process.stdout):
+            if stream is not None:
+                with contextlib.suppress(OSError):
+                    stream.close()
+        self.process = None
+        self._close_stderr_handle()
+
+    def _close_stderr_handle(self):
+        if self._stderr_handle is not None:
+            with contextlib.suppress(OSError):
+                self._stderr_handle.close()
+            self._stderr_handle = None
 
 
 class Tournament:

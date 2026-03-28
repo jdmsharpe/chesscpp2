@@ -1,6 +1,8 @@
 #include "Bitboard.h"
 #include "Magic.h"
 #include "MoveGen.h"
+#include "Polyglot.h"
+#include "PolyglotTestUtils.h"
 #include "Position.h"
 #include "UCI.h"
 #include "Zobrist.h"
@@ -46,6 +48,22 @@ class UCITest : public ::testing::Test {
     Zobrist::init();
   }
 };
+
+namespace {
+
+std::vector<std::string> collectBestMoves(const std::string& output) {
+  std::vector<std::string> moves;
+  std::istringstream lines(output);
+  std::string line;
+  while (std::getline(lines, line)) {
+    if (line.rfind("bestmove ", 0) == 0 && line.size() >= 13) {
+      moves.push_back(line.substr(9, 4));
+    }
+  }
+  return moves;
+}
+
+}  // namespace
 
 // ---------- Test 1: UCI identification ----------
 TEST_F(UCITest, UCIIdentification) {
@@ -208,4 +226,33 @@ TEST_F(UCITest, GoDepthFromCustomPosition) {
   EXPECT_NE(output.find("bestmove"), std::string::npos)
       << "Missing 'bestmove' from custom position.\n"
       << "Output was: " << output;
+}
+
+TEST_F(UCITest, RepeatedPolyglotQueriesStayStable) {
+  Position pos;
+  pos.setFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+  testutil::ScopedTempBookFile bookFile("uci_polyglot_repro");
+  const uint64_t key = PolyglotBook::computeHash(pos);
+  ASSERT_TRUE(testutil::writePolyglotBook(bookFile.path(),
+                                          {
+                                              {key, testutil::encodePolyglotMove("e2e4"), 30, 0},
+                                              {key, testutil::encodePolyglotMove("d2d4"), 20, 0},
+                                          }));
+
+  std::ostringstream commands;
+  commands << "setoption name Debug value true\n";
+  commands << "setoption name BookPath value " << bookFile.path().string() << "\n";
+  for (int i = 0; i < 25; ++i) {
+    commands << "position startpos\n";
+    commands << "go depth 1\n";
+  }
+
+  const std::string output = runUCI(commands.str());
+  const auto bestMoves = collectBestMoves(output);
+
+  ASSERT_EQ(bestMoves.size(), 25u) << output;
+  for (const auto& move : bestMoves) {
+    EXPECT_TRUE(move == "e2e4" || move == "d2d4") << "Unexpected bestmove: " << move;
+  }
 }

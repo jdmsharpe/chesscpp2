@@ -78,9 +78,11 @@ bool Tablebase::canProbe(const Position& pos) {
 TBResult Tablebase::probeWDL(const Position& pos) {
   if (!canProbe(pos)) return TB_RESULT_UNKNOWN;
 
-  // WDL probe requires no castling rights and rule50 == 0
+  // Search-time WDL probing requires no castling rights.
+  // Fathom's fast tb_probe_wdl() wrapper only works when rule50 == 0, so for
+  // nonzero halfmove clocks we fall back to tb_probe_root(), which already
+  // carries the exact 5-state WDL in its encoded result.
   if (pos.castlingRights() != 0) return TB_RESULT_UNKNOWN;
-  if (pos.halfmoveClock() != 0) return TB_RESULT_UNKNOWN;
 
   // Get bitboards for Fathom
   uint64_t white = pos.pieces(WHITE);
@@ -100,16 +102,24 @@ TBResult Tablebase::probeWDL(const Position& pos) {
 
   bool turn = (pos.sideToMove() == WHITE);
 
-  unsigned result =
-      tb_probe_wdl(white, black, kings, queens, rooks, bishops, knights, pawns, 0,  // rule50
-                   0,                                                               // castling
-                   ep, turn);
+  if (pos.halfmoveClock() == 0) {
+    unsigned result =
+        tb_probe_wdl(white, black, kings, queens, rooks, bishops, knights, pawns, 0,  // rule50
+                     0,                                                               // castling
+                     ep, turn);
 
-  if (result == TB_RESULT_FAILED) {
-    return TB_RESULT_UNKNOWN;
+    if (result == TB_RESULT_FAILED) {
+      return TB_RESULT_UNKNOWN;
+    }
+
+    return static_cast<TBResult>(result);
   }
 
-  return static_cast<TBResult>(result);
+  unsigned result = tb_probe_root(white, black, kings, queens, rooks, bishops, knights, pawns,
+                                  pos.halfmoveClock(), 0, ep, turn, nullptr);
+  if (result == TB_RESULT_FAILED) return TB_RESULT_UNKNOWN;
+
+  return static_cast<TBResult>(TB_GET_WDL(result));
 }
 
 TBProbeResult Tablebase::probeRoot(const Position& pos) {
