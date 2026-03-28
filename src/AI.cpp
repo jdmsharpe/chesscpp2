@@ -14,12 +14,11 @@
 #include <limits>
 #include <random>
 #include <sstream>
+#include <thread>
 
 // Strip halfmove clock and fullmove counter from a FEN string so that
 // transpositions (same position, different move numbers) share a book key.
 static std::string fenPositionKey(const std::string& fen) {
-  // FEN fields: position side castling ep halfmove fullmove
-  // We keep the first 4 fields.
   int spaces = 0;
   for (size_t i = 0; i < fen.size(); ++i) {
     if (fen[i] == ' ') {
@@ -27,7 +26,7 @@ static std::string fenPositionKey(const std::string& fen) {
       if (spaces == 4) return fen.substr(0, i);
     }
   }
-  return fen;  // Fewer than 4 spaces — return as-is
+  return fen;
 }
 
 // --- Static LMR table ---
@@ -40,7 +39,6 @@ void AI::initLMR() {
       if (d == 0 || m == 0) {
         lmrTable[d][m] = 0;
       } else {
-        // Logarithmic formula: deeper depth and later moves get more reduction
         lmrTable[d][m] = static_cast<int>(0.75 + std::log(d) * std::log(m) / 2.25);
       }
     }
@@ -50,24 +48,15 @@ void AI::initLMR() {
 
 AI::AI(int depth)
     : depth(depth),
-      nodesSearched(0),
-      ttHits(0),
       timeLimit(0),
       searchStartTime(0),
       stopSearch(false),
       moveCallback(nullptr),
       ttBucketCount((DEFAULT_TT_SIZE_MB * 1024 * 1024) / sizeof(TTBucket)),
       transpositionTable(ttBucketCount),
-      ttAge(0),
-      killerMoves{},
-      historyTable{},
-      pvTable{},
-      pvLength{},
-      countermoves{} {
+      ttAge(0) {
   if (!lmrInitialized) initLMR();
-  std::ostringstream oss;
-  oss << "AI::AI() constructor called (this=" << this << ")";
-  Logger::getInstance().debug(oss.str());
+  Logger::getInstance().debug("AI::AI() constructor called");
 }
 
 // Helper to get current time in milliseconds
@@ -82,7 +71,21 @@ bool AI::shouldStop() const {
   return elapsed >= static_cast<uint64_t>(timeLimit);
 }
 
+uint64_t AI::getNodesSearched() const {
+  uint64_t total = 0;
+  for (const auto& td : threads) total += td.nodesSearched;
+  return total;
+}
+
+uint64_t AI::getTTHits() const {
+  uint64_t total = 0;
+  for (const auto& td : threads) total += td.ttHits;
+  return total;
+}
+
+// =============================================================================
 // Opening book implementation
+// =============================================================================
 void AI::loadOpeningBook(const std::string& filename) {
   openingBook.clear();
   std::ifstream file(filename);
@@ -135,7 +138,7 @@ void AI::loadOpeningBook(const std::string& filename) {
           promotion = KNIGHT;
       }
 
-      std::vector<Move> legalMoves = MoveGen::generateLegalMoves(bookPos);
+      MoveList legalMoves = MoveGen::generateLegalMoves(bookPos);
       for (Move m : legalMoves) {
         if (fromSquare(m) == from && toSquare(m) == to) {
           if (promotion == NO_PIECE_TYPE || promotionType(m) == promotion) {
@@ -152,15 +155,11 @@ void AI::loadOpeningBook(const std::string& filename) {
   }
 
   std::ostringstream oss;
-  oss << "Loaded opening book with " << openingBook.size() << " positions (AI at " << this << ")";
+  oss << "Loaded opening book with " << openingBook.size() << " positions";
   Logger::getInstance().info(oss.str());
 }
 
 Move AI::probeOpeningBook(const Position& pos) {
-  std::ostringstream oss;
-  oss << "Probing: AI at " << this << ", book size: " << openingBook.size();
-  Logger::getInstance().debug(oss.str());
-
   if (openingBook.empty()) return 0;
 
   std::string fen = fenPositionKey(pos.getFEN());
@@ -172,9 +171,7 @@ Move AI::probeOpeningBook(const Position& pos) {
 
   static std::random_device rd;
   static std::mt19937 gen(rd());
-
   std::uniform_int_distribution<> dis(0, static_cast<int>(bookMoves.size()) - 1);
-
   return bookMoves[dis(gen)];
 }
 
@@ -194,10 +191,13 @@ bool AI::hasPolyglotBook() const {
   return polyglotBook.isLoaded();
 }
 
+// =============================================================================
+// findBestMove — Lazy SMP parallel search
+// =============================================================================
 Move AI::findBestMove(Position& pos, int timeMs) {
   timeLimit = timeMs;
   searchStartTime = currentTimeMs();
-  stopSearch = false;
+  stopSearch.store(false);
   return findBestMove(pos);
 }
 
@@ -206,7 +206,6 @@ Move AI::findBestMove(Position& pos) {
   bool inBookRange = useOwnBook && (bookMoveLimit == 0 || pos.fullmoveNumber() <= bookMoveLimit);
 
   if (inBookRange) {
-    // Check Polyglot book first
     if (hasPolyglotBook()) {
       Move bookMove = probePolyglotBook(pos);
       if (bookMove != 0) {
@@ -214,8 +213,6 @@ Move AI::findBestMove(Position& pos) {
         return bookMove;
       }
     }
-
-    // Fall back to text opening book
     Move bookMove = probeOpeningBook(pos);
     if (bookMove != 0) {
       std::cout << "info string Book move: " << moveToString(bookMove) << std::endl;
@@ -254,19 +251,34 @@ Move AI::findBestMove(Position& pos) {
   }
 
   std::cout << "info string Searching (no book move)..." << std::endl;
-  nodesSearched = 0;
-  ttHits = 0;
-  ttAge = (ttAge + 1) & 63;  // Increment age (wraps at 64)
+  ttAge = (ttAge + 1) & 63;
 
-  std::vector<Move> rootMoves = MoveGen::generateLegalMoves(pos);
+  MoveList rootMoves = MoveGen::generateLegalMoves(pos);
   if (rootMoves.empty()) return 0;
 
-  Move bestMove = rootMoves[0];
-  int bestScore = std::numeric_limits<int>::min();
+  // Initialize thread data
+  threads.resize(numThreads);
+  for (int t = 0; t < numThreads; ++t) {
+    threads[t].threadId = t;
+    threads[t].pos = pos;
+    threads[t].clear();
+  }
 
-  std::cout << "Using iterative deepening:\n";
+  // Launch helper threads (Lazy SMP: independent searches sharing TT)
+  std::vector<std::thread> helpers;
+  for (int t = 1; t < numThreads; ++t) {
+    helpers.emplace_back(&AI::helperThreadSearch, this, std::ref(threads[t]), rootMoves, depth);
+  }
 
-  // Iterative deepening
+  // Main thread (thread 0) does the iterative deepening with reporting
+  ThreadData& td = threads[0];
+  td.bestMove = rootMoves[0];
+  td.bestScore = std::numeric_limits<int>::min();
+
+  std::cout << "Using iterative deepening";
+  if (numThreads > 1) std::cout << " (" << numThreads << " threads)";
+  std::cout << ":\n";
+
   for (int currentDepth = 1; currentDepth <= depth; ++currentDepth) {
     if (shouldStop()) {
       std::cout << "  Time limit reached, stopping at depth " << (currentDepth - 1) << "\n";
@@ -275,20 +287,20 @@ Move AI::findBestMove(Position& pos) {
 
     // Aspiration windows
     int alpha, beta;
-    if (currentDepth >= 5 && bestScore != std::numeric_limits<int>::min()) {
+    if (currentDepth >= 5 && td.bestScore != std::numeric_limits<int>::min()) {
       const int ASPIRATION_WINDOW = 50;
-      alpha = bestScore - ASPIRATION_WINDOW;
-      beta = bestScore + ASPIRATION_WINDOW;
+      alpha = td.bestScore - ASPIRATION_WINDOW;
+      beta = td.bestScore + ASPIRATION_WINDOW;
     } else {
       alpha = std::numeric_limits<int>::min() + 1;
       beta = std::numeric_limits<int>::max() - 1;
     }
 
     // Order moves based on previous iteration
-    auto scoredRootMoves = orderMoves(pos, rootMoves, 0, bestMove);
+    ScoredMoveList scoredRootMoves = orderMoves(td, rootMoves, 0, td.bestMove);
     rootMoves.clear();
-    for (const auto& sm : scoredRootMoves) {
-      rootMoves.push_back(sm.move);
+    for (size_t ri = 0; ri < scoredRootMoves.size(); ++ri) {
+      rootMoves.push_back(scoredRootMoves[ri].move);
     }
 
     Move iterBestMove = rootMoves[0];
@@ -297,17 +309,18 @@ Move AI::findBestMove(Position& pos) {
     std::cout << "  Depth " << currentDepth << ": ";
     std::cout.flush();
 
-    for (Move move : rootMoves) {
+    for (size_t mi = 0; mi < rootMoves.size(); ++mi) {
+      Move move = rootMoves[mi];
       std::cout << moveToString(move) << " ";
       std::cout.flush();
 
       if (moveCallback) {
-        moveCallback(move, currentDepth, pos);
+        moveCallback(move, currentDepth, td.pos);
       }
 
-      pos.makeMove(move);
-      int score = -negamax(pos, currentDepth - 1, -beta, -alpha, 1);
-      pos.unmakeMove();
+      td.pos.makeMove(move);
+      int score = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
+      td.pos.unmakeMove();
 
       if (score > iterBestScore) {
         iterBestScore = score;
@@ -318,52 +331,108 @@ Move AI::findBestMove(Position& pos) {
     }
 
     // Re-search with wider window on aspiration failure
-    if (currentDepth >= 5 && (iterBestScore <= bestScore - 50 || iterBestScore >= bestScore + 50)) {
+    if (currentDepth >= 5 &&
+        (iterBestScore <= td.bestScore - 50 || iterBestScore >= td.bestScore + 50)) {
       std::cout << " [re-search " << moveToString(iterBestMove) << "]";
       alpha = std::numeric_limits<int>::min() + 1;
       beta = std::numeric_limits<int>::max() - 1;
 
-      pos.makeMove(iterBestMove);
-      iterBestScore = -negamax(pos, currentDepth - 1, -beta, -alpha, 1);
-      pos.unmakeMove();
+      td.pos.makeMove(iterBestMove);
+      iterBestScore = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
+      td.pos.unmakeMove();
     }
 
-    bestMove = iterBestMove;
-    bestScore = iterBestScore;
+    td.bestMove = iterBestMove;
+    td.bestScore = iterBestScore;
 
-    std::cout << "\n  Depth " << currentDepth << " complete: " << moveToString(bestMove)
-              << " (score: " << bestScore << ", nodes: " << nodesSearched << ", tt hits: " << ttHits
-              << ")\n";
+    uint64_t totalNodes = getNodesSearched();
+    uint64_t totalTTHits = getTTHits();
+    std::cout << "\n  Depth " << currentDepth << " complete: " << moveToString(td.bestMove)
+              << " (score: " << td.bestScore << ", nodes: " << totalNodes
+              << ", tt hits: " << totalTTHits << ")\n";
   }
 
-  std::cout << "Best move: " << moveToString(bestMove) << " (score: " << bestScore << ")\n";
-  std::cout << "Total nodes: " << nodesSearched << ", TT hits: " << ttHits << "\n";
+  // Signal helpers to stop and wait
+  stopSearch.store(true);
+  for (auto& h : helpers) h.join();
 
-  return bestMove;
+  uint64_t totalNodes = getNodesSearched();
+  uint64_t totalTTHits = getTTHits();
+  std::cout << "Best move: " << moveToString(td.bestMove) << " (score: " << td.bestScore << ")\n";
+  std::cout << "Total nodes: " << totalNodes << ", TT hits: " << totalTTHits << "\n";
+
+  return td.bestMove;
 }
 
 // =============================================================================
-// negamax — the core search function with all 10 improvements
+// Helper thread: runs independent iterative deepening to populate shared TT
 // =============================================================================
-int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move excludedMove) {
-  nodesSearched++;
+// Depth-skip table for helper thread diversity (Stockfish-inspired).
+// Each thread uses a different row. On iteration `i`, the thread skips
+// the depth if skipTable[threadId % SKIP_ROWS][i % SKIP_COLS] is true.
+// This ensures threads are usually searching at different depths.
+static constexpr int SKIP_ROWS = 6;
+static constexpr int SKIP_COLS = 8;
+static constexpr bool skipTable[SKIP_ROWS][SKIP_COLS] = {
+    {false, true, false, false, true, false, false, true},   // thread 1
+    {false, false, true, false, false, true, false, false},  // thread 2
+    {true, false, false, true, false, false, true, false},   // thread 3
+    {false, false, true, false, true, false, false, false},  // thread 4
+    {false, true, false, false, false, true, false, true},   // thread 5
+    {true, false, false, false, true, false, true, false},   // thread 6+
+};
 
-  // Prefetch TT bucket early — cache line loads while we do draw detection
-  prefetchTT(pos.hash());
+void AI::helperThreadSearch(ThreadData& td, const MoveList& rootMoves, int maxDepth) {
+  int row = (td.threadId - 1) % SKIP_ROWS;
+
+  for (int currentDepth = 1; currentDepth <= maxDepth; ++currentDepth) {
+    if (stopSearch.load(std::memory_order_relaxed)) return;
+
+    // Skip some depths to create diversity — different threads search different depths
+    if (currentDepth >= 3 && skipTable[row][(currentDepth - 1) % SKIP_COLS]) {
+      continue;
+    }
+
+    int alpha = std::numeric_limits<int>::min() + 1;
+    int beta = std::numeric_limits<int>::max() - 1;
+
+    for (size_t mi = 0; mi < rootMoves.size(); ++mi) {
+      if (stopSearch.load(std::memory_order_relaxed)) return;
+
+      Move move = rootMoves[mi];
+      td.pos.makeMove(move);
+      int score = -negamax(td, currentDepth - 1, -beta, -alpha, 1);
+      td.pos.unmakeMove();
+
+      if (score > td.bestScore) {
+        td.bestScore = score;
+        td.bestMove = move;
+      }
+    }
+  }
+}
+
+// =============================================================================
+// negamax — the core search function
+// =============================================================================
+int AI::negamax(ThreadData& td, int depth, int alpha, int beta, int ply, Move excludedMove) {
+  td.nodesSearched++;
+
+  prefetchTT(td.pos.hash());
 
   // Periodic time check (every 1024 nodes)
-  if ((nodesSearched & 0x3FF) == 0 && shouldStop()) {
+  if ((td.nodesSearched & 0x3FF) == 0 && shouldStop()) {
+    stopSearch.store(true, std::memory_order_relaxed);
     return 0;
   }
 
   // Draw detection (skip root)
   if (ply > 0) {
-    if (pos.repetitionCount() >= 2 || pos.halfmoveClock() >= 100) {
-      // Phase-scaled contempt: fight harder in endgames (where passive
-      // draws cost Elo) but stay neutral in middlegames.
-      int phase = pos.getGamePhase();
+    if (td.pos.repetitionCount() >= 2 || td.pos.halfmoveClock() >= 100) {
+      int phase = td.pos.getGamePhase();
       int contempt = -CONTEMPT_MAX * (256 - phase) / 256;
-      int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
+      int material =
+          td.pos.materialCount(td.pos.sideToMove()) - td.pos.materialCount(~td.pos.sideToMove());
       if (material > CONTEMPT_MATERIAL_THRESHOLD)
         contempt -= CONTEMPT_AHEAD_BONUS;
       else if (material < -CONTEMPT_MATERIAL_THRESHOLD)
@@ -373,62 +442,57 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
   }
 
   // Syzygy WDL probe (depth >= 2, not root)
-  if (ply > 0 && depth >= 2 && Tablebase::available() && Tablebase::canProbe(pos) &&
-      pos.castlingRights() == 0) {
-    TBResult wdl = Tablebase::probeWDL(pos);
+  if (ply > 0 && depth >= 2 && Tablebase::available() && Tablebase::canProbe(td.pos) &&
+      td.pos.castlingRights() == 0) {
+    TBResult wdl = Tablebase::probeWDL(td.pos);
     if (wdl != TB_RESULT_UNKNOWN) {
       int tbScore = Tablebase::wdlToScore(wdl, ply);
-      storeTT(pos.hash(), depth, tbScore, 0, alpha, beta, ply);
+      storeTT(td.pos.hash(), depth, tbScore, 0, alpha, beta, ply);
       return tbScore;
     }
   }
 
   int alphaOrig = alpha;
-  HashKey hash = pos.hash();
+  HashKey hash = td.pos.hash();
   TTProbeInfo ttInfo;
 
-  // [Improvement 3+6] Multi-bucket TT probe with mate score adjustment
   if (excludedMove == 0) {
-    if (auto score = probeTT(hash, depth, alpha, beta, ply, ttInfo)) {
+    if (auto score = probeTT(td, hash, depth, alpha, beta, ply, ttInfo)) {
       return *score;
     }
   } else {
-    // During singular search, only get TT move, no cutoffs.
-    // Use local copies of alpha/beta so the TT probe doesn't
-    // corrupt the outer search window.
     int tmpAlpha = std::numeric_limits<int>::min() + 1;
     int tmpBeta = std::numeric_limits<int>::max() - 1;
-    probeTT(hash, 0, tmpAlpha, tmpBeta, ply, ttInfo);
+    probeTT(td, hash, 0, tmpAlpha, tmpBeta, ply, ttInfo);
   }
 
   Move ttMove = ttInfo.ttMove;
 
   // Quiescence search at leaf nodes
   if (depth <= 0) {
-    pvLength[ply] = 0;
-    return quiescence(pos, alpha, beta, 0);
+    td.pvLength[ply] = 0;
+    return quiescence(td, alpha, beta, 0);
   }
 
-  // [Improvement 9] Adaptive null move pruning
-  if (auto score = tryNullMovePruning(pos, depth, alpha, beta, ply)) {
+  // Adaptive null move pruning
+  if (auto score = tryNullMovePruning(td, depth, alpha, beta, ply)) {
     return *score;
   }
 
   bool isPVNode = (static_cast<long long>(beta) - static_cast<long long>(alpha)) > 1;
 
-  // [Improvement 10] Fix: futility pruning NOT applied at PV nodes
-  auto pruning = canPrune(pos, depth, alpha, beta, isPVNode);
+  auto pruning = canPrune(td, depth, alpha, beta, isPVNode);
   if (pruning.cutoff) return pruning.score;
   bool futilityPrune = pruning.futilityPrune;
 
-  // [Improvement 4] Singular Extension
+  // Singular Extension
   int singularExtension = 0;
   if (depth >= 8 && ttMove != 0 && excludedMove == 0 && !isPVNode && ttInfo.found &&
       ttInfo.ttDepth >= depth - 3 && ttInfo.ttFlag != UPPERBOUND &&
       std::abs(ttInfo.ttScore) < MATE_BOUND) {
     int singularBeta = ttInfo.ttScore - 2 * depth;
     int singularDepth = (depth - 1) / 2;
-    int singularScore = negamax(pos, singularDepth, singularBeta - 1, singularBeta, ply, ttMove);
+    int singularScore = negamax(td, singularDepth, singularBeta - 1, singularBeta, ply, ttMove);
     if (singularScore < singularBeta) {
       singularExtension = 1;
     }
@@ -437,116 +501,104 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
   // IID: if no hash move at PV node, do shallow search to find one
   if (!ttMove && isPVNode && depth >= 4) {
     int iidDepth = depth - 2;
-    (void)negamax(pos, iidDepth, alpha, beta, ply);
-    // Re-probe TT to get the move found by IID
+    (void)negamax(td, iidDepth, alpha, beta, ply);
     TTProbeInfo iidInfo;
     int tmpAlpha = alpha, tmpBeta = beta;
-    (void)probeTT(hash, iidDepth, tmpAlpha, tmpBeta, ply, iidInfo);
+    (void)probeTT(td, hash, iidDepth, tmpAlpha, tmpBeta, ply, iidInfo);
     if (iidInfo.ttMove != 0) {
       ttMove = iidInfo.ttMove;
     }
   }
 
-  // [Improvement 1] Staged move generation via MovePicker
-  Move k1 = (ply < 64) ? killerMoves[ply][0] : Move(0);
-  Move k2 = (ply < 64) ? killerMoves[ply][1] : Move(0);
+  // Staged move generation via MovePicker
+  Move k1 = (ply < 64) ? td.killerMoves[ply][0] : Move(0);
+  Move k2 = (ply < 64) ? td.killerMoves[ply][1] : Move(0);
 
-  // Compute countermove
   Move cm = 0;
-  const auto& hist = pos.getHistory();
+  const auto& hist = td.pos.getHistory();
   if (!hist.empty()) {
     Move prevMove = hist.back().move;
-    cm = countermoves[fromSquare(prevMove)][toSquare(prevMove)];
+    cm = td.countermoves[fromSquare(prevMove)][toSquare(prevMove)];
   }
 
-  MovePicker picker(pos, ttMove, k1, k2, cm, historyTable, excludedMove);
+  MovePicker picker(td.pos, ttMove, k1, k2, cm, td.historyTable, excludedMove);
 
   int maxScore = std::numeric_limits<int>::min();
   Move bestMove = 0;
-  pvLength[ply] = 0;
+  td.pvLength[ply] = 0;
   int moveNum = 0;
 
-  // Track quiet moves tried (for history malus on cutoff)
   Move quietsTried[64];
   int numQuietsTried = 0;
 
   Move move;
   while ((move = picker.next()) != 0) {
     Square to = toSquare(move);
-    bool isCapture = pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT;
+    bool isCapture = td.pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT;
     bool isPromotion = moveType(move) == PROMOTION;
-    bool isKillerMove = isKiller(move, ply);
+    bool isKillerMove = isKiller(td, move, ply);
 
-    // Futility pruning: skip quiet moves if position is hopeless
-    // [Improvement 10] Only at non-PV nodes (enforced by canPrune)
     if (futilityPrune && moveNum > 0 && !isCapture && !isPromotion) {
       continue;
     }
 
-    // Late Move Pruning: skip late quiet moves at low depths
     if (depth <= 3 && moveNum >= static_cast<int>(3 + depth * depth) && !isCapture &&
         !isPromotion && !isKillerMove) {
       continue;
     }
 
-    // Lazy legality: make the move, check if our king is in check
-    pos.makeMove(move);
-    Color us = ~pos.sideToMove();  // Side that just moved
-    if (pos.isAttacked(BB::lsb(pos.pieces(us, KING)), pos.sideToMove())) {
-      pos.unmakeMove();
-      continue;  // Illegal move
+    // Lazy legality
+    td.pos.makeMove(move);
+    Color us = ~td.pos.sideToMove();
+    if (td.pos.isAttacked(BB::lsb(td.pos.pieces(us, KING)), td.pos.sideToMove())) {
+      td.pos.unmakeMove();
+      continue;
     }
 
-    bool givesCheck = pos.inCheck();
+    bool givesCheck = td.pos.inCheck();
     int extension = givesCheck ? 1 : 0;
-
-    // Apply singular extension for the TT move
     if (move == ttMove) extension = std::max(extension, singularExtension);
 
     int newDepth = depth - 1 + extension;
 
-    // [Improvement 2] Better LMR with logarithmic table
     int score;
     if (moveNum == 0) {
-      // First move: full window search
-      score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
+      score = -negamax(td, newDepth, -beta, -alpha, ply + 1);
     } else {
       int reduction = 0;
 
       if (depth >= 3 && moveNum >= 3 && !isCapture && !givesCheck && !isPromotion) {
-        // Base reduction from precomputed table
         reduction = lmrTable[std::min(depth, 63)][std::min(moveNum, 63)];
 
-        // Adjustments:
-        if (isPVNode) reduction--;      // Reduce less at PV
-        if (isKillerMove) reduction--;  // Reduce less for killers
-        if (move == cm) reduction--;    // Reduce less for countermove
+        if (isPVNode) reduction--;
+        if (isKillerMove) reduction--;
+        if (move == cm) reduction--;
 
-        // [Improvement 7] History-based adjustment
-        int histScore = historyTable[fromSquare(move)][toSquare(move)];
-        reduction -= histScore / 5000;  // Good history reduces less
+        int histScore = td.historyTable[fromSquare(move)][toSquare(move)];
+        reduction -= histScore / 5000;
 
-        // Clamp: at least 0, at most newDepth-1
+        // Thread-specific LMR variation: odd threads reduce more (aggressive),
+        // even helpers reduce less (conservative). Thread 0 (main) is unchanged.
+        if (td.threadId > 0) {
+          reduction += (td.threadId & 1) ? 1 : -1;
+        }
+
         reduction = std::max(0, std::min(reduction, newDepth - 1));
       }
 
-      // PVS: null-window search (possibly with reduction)
-      score = -negamax(pos, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
+      score = -negamax(td, newDepth - reduction, -alpha - 1, -alpha, ply + 1);
 
-      // Re-search at full depth if reduced search beat alpha
       if (score > alpha && reduction > 0) {
-        score = -negamax(pos, newDepth, -alpha - 1, -alpha, ply + 1);
+        score = -negamax(td, newDepth, -alpha - 1, -alpha, ply + 1);
       }
 
-      // Full PV search if still inside window
       if (score > alpha && score < beta) {
-        score = -negamax(pos, newDepth, -beta, -alpha, ply + 1);
+        score = -negamax(td, newDepth, -beta, -alpha, ply + 1);
       }
     }
 
-    pos.unmakeMove();
+    td.pos.unmakeMove();
 
-    // Track tried quiet moves for history malus
     if (!isCapture && !isPromotion && numQuietsTried < 64) {
       quietsTried[numQuietsTried++] = move;
     }
@@ -555,32 +607,27 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
       maxScore = score;
       bestMove = move;
 
-      // Update PV
-      pvTable[ply][0] = move;
-      for (int i = 0; i < pvLength[ply + 1]; ++i) {
-        pvTable[ply][i + 1] = pvTable[ply + 1][i];
+      td.pvTable[ply][0] = move;
+      for (int i = 0; i < td.pvLength[ply + 1]; ++i) {
+        td.pvTable[ply][i + 1] = td.pvTable[ply + 1][i];
       }
-      pvLength[ply] = pvLength[ply + 1] + 1;
+      td.pvLength[ply] = td.pvLength[ply + 1] + 1;
     }
 
     alpha = std::max(alpha, score);
 
     if (alpha >= beta) {
-      // Beta cutoff
       if (!isCapture) {
-        storeKiller(move, ply);
-        updateHistory(move, depth * depth);  // Bonus for cutoff move
+        storeKiller(td, move, ply);
+        updateHistory(td, move, depth * depth);
 
-        // [Improvement 7] History malus: penalize all quiet moves tried
-        // before the cutoff move
         for (int i = 0; i < numQuietsTried - 1; i++) {
-          updateHistory(quietsTried[i], -(depth * depth));
+          updateHistory(td, quietsTried[i], -(depth * depth));
         }
 
-        // Countermove heuristic
         if (!hist.empty()) {
           Move prevMove = hist.back().move;
-          countermoves[fromSquare(prevMove)][toSquare(prevMove)] = move;
+          td.countermoves[fromSquare(prevMove)][toSquare(prevMove)] = move;
         }
       }
       break;
@@ -589,20 +636,17 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
     moveNum++;
   }
 
-  // Checkmate or stalemate detection
   if (moveNum == 0 && maxScore == std::numeric_limits<int>::min()) {
     if (excludedMove != 0) {
-      // In singular search, we excluded a move — not truly no legal moves
       return alpha;
     }
-    if (pos.inCheck()) {
-      return -MATE_SCORE + ply;  // Checkmate
+    if (td.pos.inCheck()) {
+      return -MATE_SCORE + ply;
     } else {
-      return 0;  // Stalemate
+      return 0;
     }
   }
 
-  // [Improvement 3+6] Store to multi-bucket TT with mate score adjustment
   if (excludedMove == 0) {
     storeTT(hash, depth, maxScore, bestMove, alphaOrig, beta, ply);
   }
@@ -611,15 +655,16 @@ int AI::negamax(Position& pos, int depth, int alpha, int beta, int ply, Move exc
 }
 
 // =============================================================================
-// Quiescence search (unchanged except minor cleanups)
+// Quiescence search
 // =============================================================================
-int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
-  nodesSearched++;
+int AI::quiescence(ThreadData& td, int alpha, int beta, int qsDepth) {
+  td.nodesSearched++;
 
-  if (pos.repetitionCount() >= 2) {
-    int phase = pos.getGamePhase();
+  if (td.pos.repetitionCount() >= 2) {
+    int phase = td.pos.getGamePhase();
     int contempt = -CONTEMPT_MAX * (256 - phase) / 256;
-    int material = pos.materialCount(pos.sideToMove()) - pos.materialCount(~pos.sideToMove());
+    int material =
+        td.pos.materialCount(td.pos.sideToMove()) - td.pos.materialCount(~td.pos.sideToMove());
     if (material > CONTEMPT_MATERIAL_THRESHOLD)
       contempt -= CONTEMPT_AHEAD_BONUS;
     else if (material < -CONTEMPT_MATERIAL_THRESHOLD)
@@ -627,11 +672,11 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     return contempt;
   }
 
-  bool inCheck = pos.inCheck();
+  bool inCheck = td.pos.inCheck();
   int standPat = 0;
 
   if (!inCheck) {
-    standPat = Eval::evaluate(pos);
+    standPat = Eval::evaluate(td.pos);
     if (standPat >= beta) return beta;
 
     constexpr int DELTA_MARGIN = 900;
@@ -639,24 +684,23 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     if (alpha < standPat) alpha = standPat;
   }
 
-  std::vector<Move> captures;
+  MoveList captures;
   if (inCheck) {
-    captures = MoveGen::generateLegalMoves(pos);
+    captures = MoveGen::generateLegalMoves(td.pos);
     if (captures.empty()) {
-      return -MATE_SCORE + static_cast<int>(pos.getHistory().size());
+      return -MATE_SCORE + static_cast<int>(td.pos.getHistory().size());
     }
   } else {
-    captures = MoveGen::generateCaptures(pos);
+    captures = MoveGen::generateCaptures(td.pos);
     if (qsDepth == 0) {
-      std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
-      captures.insert(captures.end(), checks.begin(), checks.end());
+      MoveList checks = MoveGen::generateCheckingMoves(td.pos);
+      captures.append(checks.begin(), checks.end());
     }
   }
 
-  std::vector<ScoredMove> scoredCaptures;
-  scoredCaptures.reserve(captures.size());
+  ScoredMoveList scoredCaptures;
   for (Move m : captures) {
-    scoredCaptures.push_back(scoreMoveWithSEE(pos, m, 0, 0));
+    scoredCaptures.push_back(scoreMoveWithSEE(td, m, 0, 0));
   }
   std::sort(scoredCaptures.begin(), scoredCaptures.end(),
             [](const ScoredMove& a, const ScoredMove& b) { return a.score > b.score; });
@@ -667,7 +711,7 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
     }
 
     Square to = toSquare(sm.move);
-    Piece captured = pos.pieceAt(to);
+    Piece captured = td.pos.pieceAt(to);
     if (captured != NO_PIECE) {
       static const int pieceValues[6] = {100, 320, 330, 500, 900, 20000};
       if (standPat + pieceValues[typeOf(captured)] + 200 < alpha) {
@@ -675,17 +719,16 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
       }
     }
 
-    pos.makeMove(sm.move);
+    td.pos.makeMove(sm.move);
 
-    // Lazy legality: skip illegal pseudo-legal captures (e.g., pinned pieces)
-    Color qUs = ~pos.sideToMove();
-    if (pos.isAttacked(BB::lsb(pos.pieces(qUs, KING)), pos.sideToMove())) {
-      pos.unmakeMove();
+    Color qUs = ~td.pos.sideToMove();
+    if (td.pos.isAttacked(BB::lsb(td.pos.pieces(qUs, KING)), td.pos.sideToMove())) {
+      td.pos.unmakeMove();
       continue;
     }
 
-    int score = -quiescence(pos, -beta, -alpha, qsDepth + 1);
-    pos.unmakeMove();
+    int score = -quiescence(td, -beta, -alpha, qsDepth + 1);
+    td.pos.unmakeMove();
 
     if (score >= beta) return beta;
     if (score > alpha) alpha = score;
@@ -695,9 +738,9 @@ int AI::quiescence(Position& pos, int alpha, int beta, int qsDepth) {
 }
 
 // =============================================================================
-// Move scoring (used for root move ordering and qsearch)
+// Move scoring
 // =============================================================================
-ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move ttMove) {
+ScoredMove AI::scoreMoveWithSEE(const ThreadData& td, Move move, int ply, Move ttMove) {
   ScoredMove sm;
   sm.move = move;
   sm.seeValue = std::numeric_limits<int>::min();
@@ -710,10 +753,10 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move tt
   sm.score = 0;
   Square from = fromSquare(move);
   Square to = toSquare(move);
-  Piece captured = pos.pieceAt(to);
+  Piece captured = td.pos.pieceAt(to);
 
   if (captured != NO_PIECE || moveType(move) == EN_PASSANT) {
-    sm.seeValue = pos.see(move);
+    sm.seeValue = td.pos.see(move);
     if (sm.seeValue > 0) {
       sm.score = 20000 + sm.seeValue;
     } else if (sm.seeValue == 0) {
@@ -722,24 +765,22 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move tt
       sm.score = 5000 + sm.seeValue;
     }
   } else {
-    // Quiet moves
     if (ply > 0) {
-      const auto& hist = pos.getHistory();
+      const auto& hist = td.pos.getHistory();
       if (!hist.empty()) {
         Move prevMove = hist.back().move;
-        Move cm = countermoves[fromSquare(prevMove)][toSquare(prevMove)];
+        Move cm = td.countermoves[fromSquare(prevMove)][toSquare(prevMove)];
         if (move == cm) {
           sm.score = 9500;
         }
       }
     }
-    if (isKiller(move, ply)) {
+    if (isKiller(td, move, ply)) {
       sm.score += 9000;
     }
-    sm.score += historyTable[from][to];
+    sm.score += td.historyTable[from][to];
 
-    // Retreat penalty
-    const auto& hist = pos.getHistory();
+    const auto& hist = td.pos.getHistory();
     if (hist.size() >= 2) {
       const auto& prevState = hist[hist.size() - 2];
       if (from == toSquare(prevState.move) && to == fromSquare(prevState.move)) {
@@ -755,12 +796,10 @@ ScoredMove AI::scoreMoveWithSEE(const Position& pos, Move move, int ply, Move tt
   return sm;
 }
 
-std::vector<ScoredMove> AI::orderMoves(Position& pos, const std::vector<Move>& moves, int ply,
-                                       Move ttMove) {
-  std::vector<ScoredMove> scored;
-  scored.reserve(moves.size());
-  for (Move m : moves) {
-    scored.push_back(scoreMoveWithSEE(pos, m, ply, ttMove));
+ScoredMoveList AI::orderMoves(ThreadData& td, const MoveList& moves, int ply, Move ttMove) {
+  ScoredMoveList scored;
+  for (size_t i = 0; i < moves.size(); ++i) {
+    scored.push_back(scoreMoveWithSEE(td, moves[i], ply, ttMove));
   }
   std::sort(scored.begin(), scored.end(),
             [](const ScoredMove& a, const ScoredMove& b) { return a.score > b.score; });
@@ -768,51 +807,49 @@ std::vector<ScoredMove> AI::orderMoves(Position& pos, const std::vector<Move>& m
 }
 
 // =============================================================================
-// [Improvement 7] History heuristic with malus support
+// History heuristic
 // =============================================================================
-void AI::updateHistory(Move move, int bonus) {
+void AI::updateHistory(ThreadData& td, Move move, int bonus) {
   Square from = fromSquare(move);
   Square to = toSquare(move);
 
-  // Gravity-based aging: prevents scores from growing unbounded
-  historyTable[from][to] += bonus - historyTable[from][to] * std::abs(bonus) / 10000;
+  td.historyTable[from][to] += bonus - td.historyTable[from][to] * std::abs(bonus) / 10000;
 
-  // Clamp
-  if (historyTable[from][to] > 10000) {
-    historyTable[from][to] = 10000;
-  } else if (historyTable[from][to] < -10000) {
-    historyTable[from][to] = -10000;
+  if (td.historyTable[from][to] > 10000) {
+    td.historyTable[from][to] = 10000;
+  } else if (td.historyTable[from][to] < -10000) {
+    td.historyTable[from][to] = -10000;
   }
 }
 
-void AI::storeKiller(Move move, int ply) {
+void AI::storeKiller(ThreadData& td, Move move, int ply) {
   if (ply >= 64) return;
-  if (killerMoves[ply][0] != move) {
-    killerMoves[ply][1] = killerMoves[ply][0];
-    killerMoves[ply][0] = move;
+  if (td.killerMoves[ply][0] != move) {
+    td.killerMoves[ply][1] = td.killerMoves[ply][0];
+    td.killerMoves[ply][0] = move;
   }
 }
 
-bool AI::isKiller(Move move, int ply) const {
+bool AI::isKiller(const ThreadData& td, Move move, int ply) {
   if (ply >= 64) return false;
-  return killerMoves[ply][0] == move || killerMoves[ply][1] == move;
+  return td.killerMoves[ply][0] == move || td.killerMoves[ply][1] == move;
 }
 
 // =============================================================================
-// [Improvement 9] Adaptive null move pruning
+// Adaptive null move pruning
 // =============================================================================
-std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*/, int beta,
+std::optional<int> AI::tryNullMovePruning(ThreadData& td, int depth, int /*alpha*/, int beta,
                                           int ply) {
-  bool canDoNullMove = depth >= 3 && !pos.inCheck() && ply > 0;
+  bool canDoNullMove = depth >= 3 && !td.pos.inCheck() && ply > 0;
 
   if (canDoNullMove) {
-    Color us = pos.sideToMove();
-    int material = pos.materialCount(us);
+    Color us = td.pos.sideToMove();
+    int material = td.pos.materialCount(us);
 
-    int knights = BB::popCount(pos.pieces(us, KNIGHT));
-    int bishops = BB::popCount(pos.pieces(us, BISHOP));
-    int rooks = BB::popCount(pos.pieces(us, ROOK));
-    int queens = BB::popCount(pos.pieces(us, QUEEN));
+    int knights = BB::popCount(td.pos.pieces(us, KNIGHT));
+    int bishops = BB::popCount(td.pos.pieces(us, BISHOP));
+    int rooks = BB::popCount(td.pos.pieces(us, ROOK));
+    int queens = BB::popCount(td.pos.pieces(us, QUEEN));
     int nonPawnPieces = knights + bishops + rooks + queens;
 
     if (material <= 100 || nonPawnPieces == 0 || (nonPawnPieces == 1 && material < 500)) {
@@ -821,19 +858,22 @@ std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*
   }
 
   if (canDoNullMove) {
-    // Adaptive R: higher reduction at greater depths
     int R = 3 + depth / 6;
 
-    // Eval-based boost: if static eval is well above beta, increase R
-    int eval = Eval::evaluate(pos);
+    // Thread-specific null-move variation
+    if (td.threadId > 0) {
+      R += (td.threadId % 3 == 1) ? 1 : (td.threadId % 3 == 2) ? -1 : 0;
+    }
+
+    int eval = Eval::evaluate(td.pos);
     if (static_cast<long long>(eval) > static_cast<long long>(beta) + 200) R++;
 
-    R = std::min(R, depth - 1);  // Don't reduce below depth 1
+    R = std::min(R, depth - 1);
 
-    pos.makeNullMove();
+    td.pos.makeNullMove();
     int nullDepth = std::max(0, depth - 1 - R);
-    int score = -negamax(pos, nullDepth, -beta, -beta + 1, ply + 1);
-    pos.unmakeNullMove();
+    int score = -negamax(td, nullDepth, -beta, -beta + 1, ply + 1);
+    td.pos.unmakeNullMove();
 
     if (score >= beta) {
       return beta;
@@ -844,16 +884,15 @@ std::optional<int> AI::tryNullMovePruning(Position& pos, int depth, int /*alpha*
 }
 
 // =============================================================================
-// [Improvement 10] Fix: futility pruning NOT at PV nodes
+// Static pruning
 // =============================================================================
-AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bool isPVNode) {
+AI::PruningResult AI::canPrune(ThreadData& td, int depth, int alpha, int beta, bool isPVNode) {
   PruningResult result = {false, 0, false};
 
-  if (pos.inCheck()) return result;
+  if (td.pos.inCheck()) return result;
 
-  int eval = Eval::evaluate(pos);
+  int eval = Eval::evaluate(td.pos);
 
-  // Reverse Futility Pruning — non-PV nodes only
   if (depth <= 6 && !isPVNode) {
     int rfpMargin = 100 * depth;
     if (eval - rfpMargin >= beta) {
@@ -863,11 +902,10 @@ AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bo
     }
   }
 
-  // Razoring — non-PV nodes only
   if (depth <= 3 && !isPVNode) {
     int razoringMargin = 300 + 150 * depth;
     if (eval + razoringMargin < alpha) {
-      int qscore = quiescence(pos, alpha, beta, 0);
+      int qscore = quiescence(td, alpha, beta, 0);
       if (qscore < alpha) {
         result.cutoff = true;
         result.score = qscore;
@@ -876,7 +914,6 @@ AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bo
     }
   }
 
-  // Futility flag — NOT at PV nodes (this was the bug)
   if (depth <= 3 && !isPVNode) {
     int futilityMargin = 100 + 200 * depth;
     int futilityValue = eval + futilityMargin;
@@ -889,10 +926,10 @@ AI::PruningResult AI::canPrune(Position& pos, int depth, int alpha, int beta, bo
 }
 
 // =============================================================================
-// [Improvement 3+6] Multi-bucket TT with mate score adjustment
+// Transposition table (shared across threads, lockless)
 // =============================================================================
-std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, int ply,
-                               TTProbeInfo& info) {
+std::optional<int> AI::probeTT(ThreadData& td, HashKey hash, int depth, int& alpha, int& beta,
+                               int ply, TTProbeInfo& info) {
   size_t bucketIdx = hash % ttBucketCount;
   uint32_t key32 = static_cast<uint32_t>(hash >> 32);
   TTBucket& bucket = transpositionTable[bucketIdx];
@@ -905,7 +942,6 @@ std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, i
       info.ttFlag = entry.getFlag();
       info.found = true;
 
-      // Mate score adjustment: convert from position-relative to ply-relative
       int score = entry.score;
       if (score > MATE_BOUND)
         score -= ply;
@@ -914,7 +950,7 @@ std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, i
       info.ttScore = static_cast<int16_t>(score);
 
       if (entry.depth >= depth) {
-        ttHits++;
+        td.ttHits++;
         if (entry.getFlag() == EXACT) {
           return score;
         } else if (entry.getFlag() == LOWERBOUND) {
@@ -931,7 +967,7 @@ std::optional<int> AI::probeTT(HashKey hash, int depth, int& alpha, int& beta, i
     }
   }
 
-  info = TTProbeInfo{};  // Not found
+  info = TTProbeInfo{};
   return std::nullopt;
 }
 
@@ -941,17 +977,12 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOri
   uint32_t key32 = static_cast<uint32_t>(hash >> 32);
   TTBucket& bucket = transpositionTable[bucketIdx];
 
-  // Mate score adjustment: convert from ply-relative to position-relative.
-  // A winning mate score (e.g., MATE_SCORE - ply) must be stored as the
-  // absolute distance, so subtract ply to get closer to MATE_SCORE.
-  // A losing mate score (e.g., -MATE_SCORE + ply) must add ply (more negative).
   int adjScore = score;
   if (adjScore > MATE_BOUND)
     adjScore -= ply;
   else if (adjScore < -MATE_BOUND)
     adjScore += ply;
 
-  // Determine flag
   TTFlag flag;
   if (score <= alphaOrig) {
     flag = UPPERBOUND;
@@ -961,26 +992,22 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOri
     flag = EXACT;
   }
 
-  // Find the best slot to replace in the bucket
   int replaceIdx = 0;
   int worstPriority = std::numeric_limits<int>::max();
 
   for (int i = 0; i < TT_BUCKET_SIZE; i++) {
     TTEntry& entry = bucket.entries[i];
 
-    // Empty slot — use immediately
     if (entry.isEmpty()) {
       replaceIdx = i;
       break;
     }
 
-    // Same position — always replace
     if (entry.key32 == key32) {
       replaceIdx = i;
       break;
     }
 
-    // Compute replacement priority: prefer replacing shallow + old entries
     int ageDiff = (ttAge - entry.getAge()) & 63;
     int priority = static_cast<int>(entry.depth) * 4 - ageDiff * 8;
     if (priority < worstPriority) {

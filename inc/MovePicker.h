@@ -5,7 +5,6 @@
 #include "Types.h"
 
 #include <array>
-#include <vector>
 
 // Staged move generation: yields pseudo-legal moves in priority order.
 // Caller is responsible for legality checking via makeMove + isAttacked.
@@ -39,7 +38,7 @@ class MovePicker {
   };
 
   void generateAndScore();
-  Move pickBest(std::vector<ScoredMove>& list, size_t& startIdx);
+  Move pickBest(ScoredMoveList& list, size_t& startIdx);
   bool isInMoveList(Move m) const;
 
   Position& pos;
@@ -48,11 +47,11 @@ class MovePicker {
   const std::array<std::array<int, 64>, 64>& history;
   Stage stage;
 
-  std::vector<ScoredMove> goodCaptures;
-  std::vector<ScoredMove> badCaptures;
-  std::vector<ScoredMove> quietMoves;
+  ScoredMoveList goodCaptures;
+  ScoredMoveList badCaptures;
+  ScoredMoveList quietMoves;
   size_t goodCapIdx = 0, badCapIdx = 0, quietIdx = 0;
 
   // Stored pseudo-legal moves for killer/countermove validation
-  std::vector<Move> pseudoLegal;
+  MoveList pseudoLegal;
 };

@@ -23,7 +23,7 @@ bool Game::makeMove(const std::string& moveStr) {
 
 bool Game::makeMove(Move move) {
   // Check if move is legal
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(position);
+  MoveList legalMoves = MoveGen::generateLegalMoves(position);
   if (std::find(legalMoves.begin(), legalMoves.end(), move) == legalMoves.end()) {
     return false;
   }
@@ -96,7 +96,7 @@ Move Game::getAIMove() {
 }
 
 void Game::updateGameResult() {
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(position);
+  MoveList legalMoves = MoveGen::generateLegalMoves(position);
 
   if (legalMoves.empty()) {
     if (position.inCheck()) {

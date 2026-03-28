@@ -56,7 +56,7 @@ class Window {
   bool pieceSelected;
 
   // Cached legal moves (regenerated only when position changes)
-  std::vector<Move> cachedLegalMoves;
+  MoveList cachedLegalMoves;
   HashKey cachedPositionKey;
 
   // AI thinking visualization

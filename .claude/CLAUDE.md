@@ -19,13 +19,13 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 ```bash
 # From build/ directory
-ctest                          # Run all tests (173 tests)
+ctest                          # Run all tests (188 tests)
 ./test/test_bitboard           # Bitboard operations
 ./test/test_movegen            # Move generation + generateCheckingMoves
 ./test/test_position           # Position/make-unmake/SEE/draw detection/incremental eval accumulators
 ./test/test_polyglot           # Polyglot book tests
 ./test/test_eval               # Evaluation function (material, PST, pawn structure, king safety)
-./test/test_ai                 # Search (mate detection, TT, time management, move ordering)
+./test/test_ai                 # Search (mate detection, TT, time management, move ordering, Lazy SMP)
 ./test/test_uci                # UCI protocol (command parsing, options, handshake)
 ./test/test_game               # Game logic (moves, draws, checkmate, stalemate, special moves)
 
@@ -54,11 +54,12 @@ Moves are 16-bit integers: bits 0-5 from, 6-11 to, 12-13 promotion piece, 14-15 
 |-----------|-------|-------|
 | Board/position | `Position.h/cpp` | make/unmakeMove, FEN parsing, incremental eval accumulators (material, PST, phase) |
 | PST tables | `PST.h` | Shared constexpr piece-square tables and material values used by Position and Eval |
-| Move generation | `MoveGen.h/cpp` | Pseudo-legal → legality filter |
+| Move lists | `MoveList.h` | Stack-allocated `FixedList<T,N>` (constexpr `MAX_MOVES=256`), zero heap allocation; `MoveList` and `ScoredMoveList` type aliases in `Types.h` |
+| Move generation | `MoveGen.h/cpp` | Pseudo-legal → in-place legality filter |
 | Magic bitboards | `Magic.h/cpp` | Pre-computed sliding attack tables |
 | Bitboard ops | `Bitboard.h/cpp` | Attack lookups, bit manipulation |
 | Staged move gen | `MovePicker.h/cpp` | Yields pseudo-legal moves in priority order: TT → good captures → killers → countermove → quiets → bad captures; lazy legality |
-| Search | `AI.h/cpp` | Alpha-beta with: MovePicker (staged gen + lazy legality), multi-bucket TT (4-entry, packed 10-byte entries, mate score ply adjustment, prefetch), logarithmic LMR table, singular extensions, PVS, IID, adaptive null move pruning (R = 3 + depth/6), history malus, aspiration windows, contempt, retreat penalty; futility/RFP/razoring only at non-PV nodes |
+| Search | `AI.h/cpp` | Lazy SMP multi-threaded alpha-beta with: `ThreadData` per-thread state (killers, history, countermoves, PV), shared lockless TT (4-entry buckets, packed 10-byte entries, mate score ply adjustment, prefetch), helper threads with depth-skip diversity + LMR/null-move variation, MovePicker (staged gen + lazy legality), logarithmic LMR table, singular extensions, PVS, IID, adaptive null move pruning (R = 3 + depth/6), history malus, aspiration windows, contempt, retreat penalty; futility/RFP/razoring only at non-PV nodes |
 | Evaluation | `Eval.h/cpp` | Incremental PST via Position accumulators (O(1) material + PST + phase), tapered eval, pawn structure with pawn hash table (16K entries), king safety with attack unit counting (quadratic penalty, queen-presence scaling, material-scaled danger), mobility, development, rook-behind-passer, king-passer proximity (2x endgame weight), dynamic king centralization (2x endgame weight), mop-up, 50-move rule scaling, unstoppable passer detection (rule of the square) |
 | UCI protocol | `UCI.h/cpp` | Standard UCI + time controls |
 | Opening books | `Polyglot.h/cpp` | Polyglot .bin format, fallback to `book.txt` |
@@ -106,6 +107,7 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 
 ## UCI Options
 
+- `setoption name Threads value 4` — Number of search threads (default 1, range 1–256)
 - `setoption name Hash value 64` — Transposition table size in MB (default 128, range 1–4096)
 - `setoption name SyzygyPath value /path/to/syzygy` — Syzygy tablebase directory
 - `setoption name BookPath value /path/to/books/Titans.bin` — Polyglot opening book
@@ -114,7 +116,7 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 
 ## Design Documents
 
-- `docs/plans/2025-10-30-lazy-smp-multithreading-design.md` — Lazy SMP parallel search (not yet implemented)
+- `docs/plans/2025-10-30-lazy-smp-multithreading-design.md` — Lazy SMP parallel search design (implemented)
 - `docs/superpowers/specs/2026-03-23-ai-refactor-and-perf-design.md` — AI.cpp refactor + performance wins (completed)
 - `docs/superpowers/plans/2026-03-23-ai-refactor-and-perf.md` — Implementation plan for the above
 

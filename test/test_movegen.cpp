@@ -28,8 +28,8 @@ TEST_F(MoveGenTest, StartingPosition) {
   EXPECT_EQ(BB::popCount(pos.pieces(BLACK, KNIGHT)), 2);
 
   // Test legal moves from starting position
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(pos);
-  EXPECT_EQ(legalMoves.size(), 20);  // 16 pawn moves + 4 knight moves
+  MoveList legalMoves = MoveGen::generateLegalMoves(pos);
+  EXPECT_EQ(legalMoves.size(), 20u);  // 16 pawn moves + 4 knight moves
 }
 
 TEST_F(MoveGenTest, PerftStartingPosition) {
@@ -148,7 +148,7 @@ TEST_F(MoveGenTest, CheckingMoves_NoneFromStartingPosition) {
   Position pos;
   pos.setFromFEN(STARTING_FEN);
 
-  std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+  MoveList checks = MoveGen::generateCheckingMoves(pos);
   EXPECT_TRUE(checks.empty());
 }
 
@@ -162,7 +162,7 @@ TEST_F(MoveGenTest, CheckingMoves_KnightGivesCheck) {
   Position pos;
   pos.setFromFEN("4k3/8/8/3N4/8/8/8/4K3 w - - 0 1");
 
-  std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+  MoveList checks = MoveGen::generateCheckingMoves(pos);
   EXPECT_FALSE(checks.empty());
 
   // Nc7+ and Nf6+ should both give check to ke8
@@ -194,7 +194,7 @@ TEST_F(MoveGenTest, CheckingMoves_DiscoveredCheck) {
   // King on a1, Rook on e1, Knight on e4, Black king on e8.
   pos.setFromFEN("4k3/8/8/8/4N3/8/8/K3R3 w - - 0 1");
 
-  std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+  MoveList checks = MoveGen::generateCheckingMoves(pos);
 
   // Any knight move off the e-file discovers check from Re1 to ke8.
   // Knight on e4 can move to: d6, f6, c5, g5, c3, g3, d2, f2
@@ -224,7 +224,7 @@ TEST_F(MoveGenTest, CheckingMoves_NoCapturesInResults) {
   Position pos;
   pos.setFromFEN("4k3/2p5/8/3N4/8/8/8/4K3 w - - 0 1");
 
-  std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+  MoveList checks = MoveGen::generateCheckingMoves(pos);
 
   for (Move m : checks) {
     Square to = toSquare(m);
@@ -259,7 +259,7 @@ TEST_F(MoveGenTest, CheckingMoves_AllReturnedMovesAreLegal) {
     Position pos;
     pos.setFromFEN(fen);
 
-    std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+    MoveList checks = MoveGen::generateCheckingMoves(pos);
     Color us = pos.sideToMove();
 
     for (Move m : checks) {
@@ -287,7 +287,7 @@ TEST_F(MoveGenTest, CheckingMoves_AllReturnedMovesGiveCheck) {
     Position pos;
     pos.setFromFEN(fen);
 
-    std::vector<Move> checks = MoveGen::generateCheckingMoves(pos);
+    MoveList checks = MoveGen::generateCheckingMoves(pos);
 
     for (Move m : checks) {
       pos.makeMove(m);
@@ -316,10 +316,10 @@ TEST_F(MoveGenTest, CheckingMoves_BruteForceComparison) {
     pos.setFromFEN(fen);
 
     // Method 1: the function under test
-    std::vector<Move> checkingMoves = MoveGen::generateCheckingMoves(pos);
+    MoveList checkingMoves = MoveGen::generateCheckingMoves(pos);
 
     // Method 2: brute force — all legal non-captures that give check
-    std::vector<Move> legalMoves = MoveGen::generateLegalMoves(pos);
+    MoveList legalMoves = MoveGen::generateLegalMoves(pos);
     std::vector<Move> bruteForceChecks;
     for (Move m : legalMoves) {
       Square to = toSquare(m);
@@ -356,7 +356,7 @@ TEST_F(MoveGenTest, IllegalPosition_KingInCheck_NoKingCapture) {
   Position pos;
   ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
 
-  std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
+  MoveList moves = MoveGen::generateLegalMoves(pos);
   EXPECT_FALSE(moves.empty()) << "Should still generate legal moves";
 
   for (Move m : moves) {
@@ -372,7 +372,7 @@ TEST_F(MoveGenTest, IllegalPosition_KingInCheck_BlackToMove) {
   Position pos;
   ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1k6/8/K1q5 b - - 0 1"));
 
-  std::vector<Move> moves = MoveGen::generateLegalMoves(pos);
+  MoveList moves = MoveGen::generateLegalMoves(pos);
   EXPECT_FALSE(moves.empty());
 
   for (Move m : moves) {
@@ -388,7 +388,7 @@ TEST_F(MoveGenTest, IllegalPosition_KingCaptureFilteredFromCaptures) {
   Position pos;
   ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
 
-  std::vector<Move> captures = MoveGen::generateCaptures(pos);
+  MoveList captures = MoveGen::generateCaptures(pos);
   for (Move m : captures) {
     Square to = toSquare(m);
     Piece captured = pos.pieceAt(to);

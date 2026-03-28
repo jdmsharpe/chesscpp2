@@ -91,7 +91,8 @@ Move MovePicker::next() {
 void MovePicker::generateAndScore() {
   pseudoLegal = MoveGen::generatePseudoLegalMoves(pos);
 
-  for (Move m : pseudoLegal) {
+  for (size_t i = 0; i < pseudoLegal.size(); ++i) {
+    Move m = pseudoLegal[i];
     Square to = toSquare(m);
     Square from = fromSquare(m);
     bool isCapture = pos.pieceAt(to) != NO_PIECE || moveType(m) == EN_PASSANT;
@@ -126,7 +127,7 @@ void MovePicker::generateAndScore() {
   }
 }
 
-Move MovePicker::pickBest(std::vector<ScoredMove>& list, size_t& startIdx) {
+Move MovePicker::pickBest(ScoredMoveList& list, size_t& startIdx) {
   // Selection sort: find best from startIdx onward, swap to front
   size_t bestIdx = startIdx;
   for (size_t i = startIdx + 1; i < list.size(); i++) {
@@ -141,8 +142,8 @@ Move MovePicker::pickBest(std::vector<ScoredMove>& list, size_t& startIdx) {
 }
 
 bool MovePicker::isInMoveList(Move m) const {
-  for (Move pm : pseudoLegal) {
-    if (pm == m) return true;
+  for (size_t i = 0; i < pseudoLegal.size(); ++i) {
+    if (pseudoLegal[i] == m) return true;
   }
   return false;
 }

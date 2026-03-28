@@ -82,6 +82,7 @@ void UCI::loop() {
 void UCI::handleUCI() {
   std::cout << "id name Chess++ Bitboards" << std::endl;
   std::cout << "id author Chess++ Team" << std::endl;
+  std::cout << "option name Threads type spin default 1 min 1 max 256" << std::endl;
   std::cout << "option name Hash type spin default 128 min 1 max 4096" << std::endl;
   std::cout << "option name Debug type check default false" << std::endl;
   std::cout << "option name Depth type spin default 6 min 1 max 20" << std::endl;
@@ -284,7 +285,15 @@ void UCI::handleSetOption(const std::string& args) {
   std::string value;
   iss >> value;
 
-  if (name == "Hash") {
+  if (name == "Threads") {
+    int n = std::stoi(value);
+    if (n < 1) n = 1;
+    if (n > 256) n = 256;
+    game.setThreads(n);
+    if (debug) {
+      std::cout << "info string Threads set to " << n << std::endl;
+    }
+  } else if (name == "Hash") {
     int mb = std::stoi(value);
     if (mb < 1) mb = 1;
     if (mb > 4096) mb = 4096;
@@ -402,7 +411,7 @@ Move UCI::parseMove(const std::string& moveStr) {
   }
 
   // Find matching legal move
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(game.getPosition());
+  MoveList legalMoves = MoveGen::generateLegalMoves(game.getPosition());
 
   for (Move move : legalMoves) {
     if (fromSquare(move) == from && toSquare(move) == to) {

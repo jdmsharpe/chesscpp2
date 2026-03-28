@@ -101,7 +101,7 @@ void runConsoleMode(Game& game, int aiDepth) {
       std::cout << "Invalid move! Try again.\n";
 
       // Show legal moves
-      std::vector<Move> legalMoves = MoveGen::generateLegalMoves(game.getPosition());
+      MoveList legalMoves = MoveGen::generateLegalMoves(game.getPosition());
       std::cout << "Legal moves: ";
       for (Move m : legalMoves) {
         std::cout << moveToString(m) << " ";

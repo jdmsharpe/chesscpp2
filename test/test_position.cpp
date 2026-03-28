@@ -346,7 +346,7 @@ TEST_F(PositionTest, InCheck_NoKing_ReturnsFalse) {
   ASSERT_TRUE(pos.setFromFEN("8/8/8/8/8/1K6/8/k1Q5 w - - 0 1"));
 
   // Find the pseudo-legal Qc1xa1 move manually
-  std::vector<Move> pseudoMoves = MoveGen::generatePseudoLegalMoves(pos);
+  MoveList pseudoMoves = MoveGen::generatePseudoLegalMoves(pos);
   Move kingCapture = 0;
   for (Move m : pseudoMoves) {
     if (fromSquare(m) == C1 && toSquare(m) == A1) {

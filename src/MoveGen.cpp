@@ -10,7 +10,7 @@ namespace MoveGen {
 
 // Add pawn moves for a single pawn
 template <Color Us>
-void generatePawnMoves(const Position& pos, std::vector<Move>& moves, Square from) {
+void generatePawnMoves(const Position& pos, MoveList& moves, Square from) {
   constexpr Color Them = (Us == WHITE) ? BLACK : WHITE;
   constexpr int Up = (Us == WHITE) ? 8 : -8;
   constexpr int PromotionRank = (Us == WHITE) ? RANK_7 : RANK_2;
@@ -65,7 +65,7 @@ void generatePawnMoves(const Position& pos, std::vector<Move>& moves, Square fro
 
 // Generate moves for a piece type
 template <PieceType Pt>
-void generatePieceMoves(const Position& pos, std::vector<Move>& moves, Color us, Bitboard pieces) {
+void generatePieceMoves(const Position& pos, MoveList& moves, Color us, Bitboard pieces) {
   Bitboard targets = ~pos.pieces(us);  // Can move to empty squares or enemy pieces
   Bitboard occupied = pos.occupied();
 
@@ -96,7 +96,7 @@ void generatePieceMoves(const Position& pos, std::vector<Move>& moves, Color us,
 
 // Generate castling moves
 template <Color Us>
-void generateCastling(const Position& pos, std::vector<Move>& moves) {
+void generateCastling(const Position& pos, MoveList& moves) {
   constexpr Color Them = (Us == WHITE) ? BLACK : WHITE;
 
   if (pos.inCheck()) return;  // Cannot castle out of check
@@ -135,9 +135,8 @@ void generateCastling(const Position& pos, std::vector<Move>& moves) {
   }
 }
 
-std::vector<Move> generatePseudoLegalMoves(const Position& pos) {
-  std::vector<Move> moves;
-  moves.reserve(128);
+MoveList generatePseudoLegalMoves(const Position& pos) {
+  MoveList moves;
 
   Color us = pos.sideToMove();
 
@@ -206,25 +205,28 @@ bool isLegal(Position& pos, Move move) {
   return legal;
 }
 
-std::vector<Move> generateLegalMoves(Position& pos) {
-  std::vector<Move> pseudoMoves = generatePseudoLegalMoves(pos);
-  std::vector<Move> legalMoves;
-  legalMoves.reserve(pseudoMoves.size());
+MoveList generateLegalMoves(Position& pos) {
+  MoveList moves = generatePseudoLegalMoves(pos);
 
-  for (Move move : pseudoMoves) {
-    if (isLegal(pos, move)) {
-      legalMoves.push_back(move);
+  // In-place legality filter: walk forward, swap-erase illegal moves
+  size_t i = 0;
+  while (i < moves.size()) {
+    if (isLegal(pos, moves[i])) {
+      ++i;
+    } else {
+      moves.swapErase(i);
     }
   }
 
-  return legalMoves;
+  return moves;
 }
 
-std::vector<Move> generateCaptures(Position& pos) {
-  std::vector<Move> pseudoMoves = generatePseudoLegalMoves(pos);
-  std::vector<Move> captures;
+MoveList generateCaptures(Position& pos) {
+  MoveList pseudoMoves = generatePseudoLegalMoves(pos);
+  MoveList captures;
 
-  for (Move move : pseudoMoves) {
+  for (size_t i = 0; i < pseudoMoves.size(); ++i) {
+    Move move = pseudoMoves[i];
     Square to = toSquare(move);
     // Check if it's a capture
     if (pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT) {
@@ -238,11 +240,12 @@ std::vector<Move> generateCaptures(Position& pos) {
   return captures;
 }
 
-std::vector<Move> generateCheckingMoves(Position& pos) {
-  std::vector<Move> pseudoMoves = generatePseudoLegalMoves(pos);
-  std::vector<Move> checks;
+MoveList generateCheckingMoves(Position& pos) {
+  MoveList pseudoMoves = generatePseudoLegalMoves(pos);
+  MoveList checks;
 
-  for (Move move : pseudoMoves) {
+  for (size_t i = 0; i < pseudoMoves.size(); ++i) {
+    Move move = pseudoMoves[i];
     Square to = toSquare(move);
     // Skip captures — already handled by generateCaptures
     if (pos.pieceAt(to) != NO_PIECE || moveType(move) == EN_PASSANT) {
@@ -271,13 +274,13 @@ std::vector<Move> generateCheckingMoves(Position& pos) {
 uint64_t perft(Position& pos, int depth) {
   if (depth == 0) return 1;
 
-  std::vector<Move> moves = generateLegalMoves(pos);
+  MoveList moves = generateLegalMoves(pos);
 
   if (depth == 1) return moves.size();
 
   uint64_t nodes = 0;
-  for (Move move : moves) {
-    pos.makeMove(move);
+  for (size_t i = 0; i < moves.size(); ++i) {
+    pos.makeMove(moves[i]);
     nodes += perft(pos, depth - 1);
     pos.unmakeMove();
   }
@@ -286,18 +289,18 @@ uint64_t perft(Position& pos, int depth) {
 }
 
 void perftDivide(Position& pos, int depth) {
-  std::vector<Move> moves = generateLegalMoves(pos);
+  MoveList moves = generateLegalMoves(pos);
   uint64_t totalNodes = 0;
 
   std::cout << "\nPerft Divide (depth " << depth << "):\n";
   std::cout << "--------------------------------\n";
 
-  for (Move move : moves) {
-    pos.makeMove(move);
+  for (size_t i = 0; i < moves.size(); ++i) {
+    pos.makeMove(moves[i]);
     uint64_t nodes = (depth > 1) ? perft(pos, depth - 1) : 1;
     pos.unmakeMove();
 
-    std::cout << moveToString(move) << ": " << nodes << "\n";
+    std::cout << moveToString(moves[i]) << ": " << nodes << "\n";
     totalNodes += nodes;
   }
 

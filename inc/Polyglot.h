@@ -52,8 +52,7 @@ class PolyglotBook {
   std::pair<size_t, size_t> findEntries(uint64_t key) const;
 
   // Convert Polyglot move encoding to our Move format
-  Move convertMove(uint16_t polyMove, const Position& pos,
-                   const std::vector<Move>& legalMoves) const;
+  Move convertMove(uint16_t polyMove, const Position& pos, const MoveList& legalMoves) const;
 
   // Polyglot random numbers (standardized)
   static const uint64_t Random64[781];

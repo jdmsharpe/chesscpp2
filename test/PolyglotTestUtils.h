@@ -140,7 +140,7 @@ inline Move findLegalMove(const Position& pos, std::string_view uci) {
   }
 
   Position posCopy = pos;
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
+  MoveList legalMoves = MoveGen::generateLegalMoves(posCopy);
   for (Move move : legalMoves) {
     if (fromSquare(move) != from || toSquare(move) != to) continue;
     if (uci.size() == 5) {

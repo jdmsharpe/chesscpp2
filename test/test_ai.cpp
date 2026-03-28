@@ -39,7 +39,7 @@ class AITest : public ::testing::Test {
 
   // Helper: check if the move returned is among the legal moves for the position
   bool isLegalMove(Position& pos, Move move) {
-    std::vector<Move> legalMoves = MoveGen::generateLegalMoves(pos);
+    MoveList legalMoves = MoveGen::generateLegalMoves(pos);
     for (Move m : legalMoves) {
       if (m == move) return true;
     }
@@ -50,7 +50,7 @@ class AITest : public ::testing::Test {
   bool isCheckmate(Position& pos, Move move) {
     pos.makeMove(move);
     bool inCheck = pos.inCheck();
-    std::vector<Move> replies = MoveGen::generateLegalMoves(pos);
+    MoveList replies = MoveGen::generateLegalMoves(pos);
     pos.unmakeMove();
     return inCheck && replies.empty();
   }
@@ -300,6 +300,121 @@ TEST_F(AITest, SearchHandlesTablebasePositionGracefully) {
 
   // Must return a legal move
   EXPECT_TRUE(isLegalMove(pos, best)) << "Engine must return a legal move in K+Q vs K endgame";
+}
+
+// =============================================================================
+// Lazy SMP multi-threading tests
+// =============================================================================
+
+TEST_F(AITest, MultiThread_ReturnsLegalMove) {
+  // Multi-threaded search must still return a legal move.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN(STARTING_FEN));
+
+  AI ai(6);
+  ai.clearTT();
+  ai.setThreads(4);
+  Move best = ai.findBestMove(pos);
+
+  EXPECT_NE(best, 0);
+  EXPECT_TRUE(isLegalMove(pos, best))
+      << "Multi-threaded search returned illegal move: " << moveToString(best);
+}
+
+TEST_F(AITest, MultiThread_FindsMateInOne) {
+  // Multi-threaded search must still find forced mates.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN("k7/8/1K6/8/8/8/8/7R w - - 0 1"));
+
+  AI ai(4);
+  ai.clearTT();
+  ai.setThreads(4);
+  Move best = ai.findBestMove(pos);
+
+  EXPECT_NE(best, 0);
+  EXPECT_TRUE(isLegalMove(pos, best));
+  EXPECT_TRUE(isCheckmate(pos, best))
+      << "Multi-threaded search failed to find mate: " << moveToString(best);
+}
+
+TEST_F(AITest, MultiThread_NodeCountIncludesAllThreads) {
+  // With multiple threads, total node count should exceed single-thread count.
+  Position pos;
+  ASSERT_TRUE(
+      pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"));
+
+  AI ai1(8);
+  ai1.clearTT();
+  ai1.setThreads(1);
+  ai1.findBestMove(pos);
+  uint64_t nodes1 = ai1.getNodesSearched();
+
+  AI ai4(8);
+  ai4.clearTT();
+  ai4.setThreads(4);
+  ai4.findBestMove(pos);
+  uint64_t nodes4 = ai4.getNodesSearched();
+
+  EXPECT_GT(nodes4, nodes1) << "4-thread search (" << nodes4
+                            << " nodes) should examine more total nodes than 1-thread (" << nodes1
+                            << " nodes)";
+}
+
+TEST_F(AITest, MultiThread_TTHitsIncrease) {
+  // Multi-threading should increase TT hits due to shared table.
+  Position pos;
+  ASSERT_TRUE(
+      pos.setFromFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"));
+
+  AI ai1(8);
+  ai1.clearTT();
+  ai1.setThreads(1);
+  ai1.findBestMove(pos);
+  uint64_t hits1 = ai1.getTTHits();
+
+  AI ai4(8);
+  ai4.clearTT();
+  ai4.setThreads(4);
+  ai4.findBestMove(pos);
+  uint64_t hits4 = ai4.getTTHits();
+
+  EXPECT_GT(hits4, hits1) << "4-thread TT hits (" << hits4 << ") should exceed 1-thread (" << hits1
+                          << ")";
+}
+
+TEST_F(AITest, MultiThread_TimeManagementStopsAllThreads) {
+  // Time limit must stop all threads, not just the main thread.
+  Position pos;
+  ASSERT_TRUE(pos.setFromFEN(STARTING_FEN));
+
+  AI ai(100);  // Very deep — must be time-limited
+  ai.clearTT();
+  ai.setThreads(4);
+
+  auto start = std::chrono::steady_clock::now();
+  Move best = ai.findBestMove(pos, 300);  // 300ms limit
+  auto end = std::chrono::steady_clock::now();
+
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+  EXPECT_NE(best, 0);
+  EXPECT_TRUE(isLegalMove(pos, best));
+  EXPECT_LT(elapsed, 2000) << "Multi-threaded search took " << elapsed
+                           << "ms, expected < 2000ms with 300ms limit";
+}
+
+TEST_F(AITest, MultiThread_SetThreadsConfig) {
+  AI ai(4);
+  EXPECT_EQ(ai.getThreads(), 1);  // Default
+
+  ai.setThreads(8);
+  EXPECT_EQ(ai.getThreads(), 8);
+
+  ai.setThreads(0);  // Should clamp to 1
+  EXPECT_EQ(ai.getThreads(), 1);
+
+  ai.setThreads(-5);  // Should clamp to 1
+  EXPECT_EQ(ai.getThreads(), 1);
 }
 
 TEST_F(AITest, ProbeWDLHandlesNonzeroHalfmoveClock) {

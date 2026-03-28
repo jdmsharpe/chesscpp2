@@ -34,6 +34,7 @@ class Game {
   void setAIMoveCallback(AI::MoveCallback callback) { ai.setMoveCallback(callback); }
   void loadOpeningBook(const std::string& filename) { ai.loadOpeningBook(filename); }
   bool loadPolyglotBook(const std::string& filename) { return ai.loadPolyglotBook(filename); }
+  void setThreads(int n) { ai.setThreads(n); }
   void setOwnBook(bool enabled) { ai.setOwnBook(enabled); }
   void setBookDepth(int maxMove) { ai.setBookDepth(maxMove); }
   Move getAIMove();

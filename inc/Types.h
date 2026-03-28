@@ -235,3 +235,8 @@ struct ScoredMove {
   int score;     // move ordering score
   int seeValue;  // cached SEE value (INT_MIN = not computed)
 };
+
+// Stack-allocated move lists (avoid heap allocation in hot paths)
+#include "MoveList.h"
+using MoveList = FixedList<Move>;
+using ScoredMoveList = FixedList<ScoredMove>;

@@ -190,7 +190,7 @@ TBProbeResult Tablebase::probeRoot(const Position& pos) {
   // We need to find the legal move that matches from/to/promotion
   // Note: generateLegalMoves needs non-const position, so make a copy
   Position posCopy = pos;
-  std::vector<Move> legalMoves = MoveGen::generateLegalMoves(posCopy);
+  MoveList legalMoves = MoveGen::generateLegalMoves(posCopy);
 
   for (Move m : legalMoves) {
     if (fromSquare(m) == static_cast<Square>(from) && toSquare(m) == static_cast<Square>(to)) {
