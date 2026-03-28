@@ -83,13 +83,17 @@ class AI {
   // Resize transposition table (in MB)
   void resizeTT(size_t mb) {
     ttBucketCount = (mb * 1024 * 1024) / sizeof(TTBucket);
-    transpositionTable.assign(ttBucketCount, TTBucket{});
+    transpositionTable = std::vector<TTBucket>(ttBucketCount);
     ttAge = 0;
   }
 
   // Clear transposition table
   void clearTT() {
-    std::fill(transpositionTable.begin(), transpositionTable.end(), TTBucket{});
+    for (auto& bucket : transpositionTable) {
+      for (auto& entry : bucket.entries) {
+        entry.clear();
+      }
+    }
     ttAge = 0;
   }
 
@@ -150,16 +154,44 @@ class AI {
   enum TTFlag : uint8_t { EXACT = 0, LOWERBOUND = 1, UPPERBOUND = 2 };
 
   struct TTEntry {
-    uint32_t key32 = 0;
-    int16_t score = 0;
-    Move bestMove = 0;
-    int8_t depth = 0;
-    uint8_t flagAge = 0;
+    std::atomic<uint32_t> key32{0};
+    std::atomic<uint64_t> payload{0};
 
-    TTFlag getFlag() const { return TTFlag(flagAge & 3); }
-    uint8_t getAge() const { return flagAge >> 2; }
-    void setFlagAge(TTFlag f, uint8_t age) { flagAge = static_cast<uint8_t>((age << 2) | (f & 3)); }
-    bool isEmpty() const { return key32 == 0 && bestMove == 0; }
+    static constexpr uint64_t pack(int16_t score, Move bestMove, int8_t depth, uint8_t flagAge) {
+      return static_cast<uint64_t>(static_cast<uint16_t>(score)) |
+             (static_cast<uint64_t>(bestMove) << 16) |
+             (static_cast<uint64_t>(static_cast<uint8_t>(depth)) << 32) |
+             (static_cast<uint64_t>(flagAge) << 40);
+    }
+
+    static constexpr int16_t unpackScore(uint64_t packed) {
+      return static_cast<int16_t>(packed & 0xFFFFULL);
+    }
+
+    static constexpr Move unpackBestMove(uint64_t packed) {
+      return static_cast<Move>((packed >> 16) & 0xFFFFULL);
+    }
+
+    static constexpr int8_t unpackDepth(uint64_t packed) {
+      return static_cast<int8_t>((packed >> 32) & 0xFFULL);
+    }
+
+    static constexpr uint8_t unpackFlagAge(uint64_t packed) {
+      return static_cast<uint8_t>((packed >> 40) & 0xFFULL);
+    }
+
+    static constexpr TTFlag unpackFlag(uint64_t packed) {
+      return TTFlag(unpackFlagAge(packed) & 3);
+    }
+
+    static constexpr uint8_t unpackAge(uint64_t packed) {
+      return unpackFlagAge(packed) >> 2;
+    }
+
+    void clear() {
+      payload.store(0, std::memory_order_relaxed);
+      key32.store(0, std::memory_order_relaxed);
+    }
   };
 
   static constexpr int TT_BUCKET_SIZE = 4;

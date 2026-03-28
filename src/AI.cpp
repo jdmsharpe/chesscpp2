@@ -1030,26 +1030,32 @@ std::optional<int> AI::probeTT(ThreadData& td, HashKey hash, int depth, int& alp
 
   for (int i = 0; i < TT_BUCKET_SIZE; i++) {
     TTEntry& entry = bucket.entries[i];
-    if (entry.key32 == key32) {
-      info.ttMove = entry.bestMove;
-      info.ttDepth = entry.depth;
-      info.ttFlag = entry.getFlag();
+    uint32_t storedKey = entry.key32.load(std::memory_order_acquire);
+    if (storedKey != key32 || storedKey == 0) {
+      continue;
+    }
+
+    uint64_t packed = entry.payload.load(std::memory_order_relaxed);
+    if (entry.key32.load(std::memory_order_acquire) == storedKey) {
+      info.ttMove = TTEntry::unpackBestMove(packed);
+      info.ttDepth = TTEntry::unpackDepth(packed);
+      info.ttFlag = TTEntry::unpackFlag(packed);
       info.found = true;
 
-      int score = entry.score;
+      int score = TTEntry::unpackScore(packed);
       if (score > MATE_BOUND)
         score -= ply;
       else if (score < -MATE_BOUND)
         score += ply;
       info.ttScore = static_cast<int16_t>(score);
 
-      if (entry.depth >= depth) {
+      if (info.ttDepth >= depth) {
         td.ttHits++;
-        if (entry.getFlag() == EXACT) {
+        if (info.ttFlag == EXACT) {
           return score;
-        } else if (entry.getFlag() == LOWERBOUND) {
+        } else if (info.ttFlag == LOWERBOUND) {
           alpha = std::max(alpha, score);
-        } else if (entry.getFlag() == UPPERBOUND) {
+        } else if (info.ttFlag == UPPERBOUND) {
           beta = std::min(beta, score);
         }
 
@@ -1091,19 +1097,21 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOri
 
   for (int i = 0; i < TT_BUCKET_SIZE; i++) {
     TTEntry& entry = bucket.entries[i];
+    uint32_t storedKey = entry.key32.load(std::memory_order_relaxed);
 
-    if (entry.isEmpty()) {
+    if (storedKey == 0) {
       replaceIdx = i;
       break;
     }
 
-    if (entry.key32 == key32) {
+    if (storedKey == key32) {
       replaceIdx = i;
       break;
     }
 
-    int ageDiff = (ttAge - entry.getAge()) & 63;
-    int priority = static_cast<int>(entry.depth) * 4 - ageDiff * 8;
+    uint64_t packed = entry.payload.load(std::memory_order_relaxed);
+    int ageDiff = (ttAge - TTEntry::unpackAge(packed)) & 63;
+    int priority = static_cast<int>(TTEntry::unpackDepth(packed)) * 4 - ageDiff * 8;
     if (priority < worstPriority) {
       worstPriority = priority;
       replaceIdx = i;
@@ -1111,11 +1119,13 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOri
   }
 
   TTEntry& target = bucket.entries[replaceIdx];
-  target.key32 = key32;
-  target.score = static_cast<int16_t>(std::max(std::min(adjScore, 32000), -32000));
-  target.bestMove = bestMove;
-  target.depth = static_cast<int8_t>(std::min(depth, 127));
-  target.setFlagAge(flag, ttAge);
+  uint64_t packed = TTEntry::pack(
+      static_cast<int16_t>(std::max(std::min(adjScore, 32000), -32000)), bestMove,
+      static_cast<int8_t>(std::min(depth, 127)),
+      static_cast<uint8_t>((ttAge << 2) | static_cast<uint8_t>(flag)));
+  target.key32.store(0, std::memory_order_relaxed);
+  target.payload.store(packed, std::memory_order_relaxed);
+  target.key32.store(key32, std::memory_order_release);
 }
 
 // =============================================================================

@@ -441,6 +441,34 @@ TEST_F(AITest, MultiThread_SelectsHelperResultWhenMainThreadStalls) {
       << "A stalled main thread should allow a helper thread to supply the final result";
 }
 
+TEST_F(AITest, MultiThread_RepeatedSearchesRemainStableWithSharedTT) {
+  // Reuse one multi-threaded engine across several positions so helper threads
+  // repeatedly probe and replace shared TT entries, similar to tournament play.
+  static constexpr const char* kStressFens[] = {
+      STARTING_FEN,
+      "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+      "2r2rk1/pp3ppp/2n1pn2/2bp4/3P4/2P1PN2/PP1NBPPP/R2R2K1 w - - 0 1",
+      "3r2k1/1p3pp1/p1n1p2p/3pP3/3P1P2/2P1BN1P/PP4P1/2KR3R w - - 0 1",
+  };
+
+  AI ai(8);
+  ai.clearTT();
+  ai.setThreads(8);
+
+  for (int round = 0; round < 3; ++round) {
+    for (const char* fen : kStressFens) {
+      Position pos;
+      ASSERT_TRUE(pos.setFromFEN(fen));
+
+      Move best = ai.findBestMove(pos, 150);
+
+      EXPECT_NE(best, 0);
+      EXPECT_TRUE(isLegalMove(pos, best))
+          << "Repeated multi-threaded search returned illegal move from " << fen;
+    }
+  }
+}
+
 TEST_F(AITest, MultiThread_SetThreadsConfig) {
   AI ai(4);
   EXPECT_EQ(ai.getThreads(), 1);  // Default
