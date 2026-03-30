@@ -181,6 +181,10 @@ TEST_F(UCITest, UCIOptionsAdvertised) {
   std::string output = runUCI("uci");
 
   // The engine should advertise its configurable options
+  EXPECT_NE(output.find("option name Threads type spin default 4"), std::string::npos)
+      << "Missing Threads option with the expected default in UCI output";
+  EXPECT_NE(output.find("option name Depth type spin default 4"), std::string::npos)
+      << "Missing Depth option with the expected default in UCI output";
   EXPECT_NE(output.find("option name Depth"), std::string::npos)
       << "Missing Depth option in UCI output";
   EXPECT_NE(output.find("option name SyzygyPath"), std::string::npos)

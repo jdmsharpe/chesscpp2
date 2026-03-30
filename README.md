@@ -80,11 +80,11 @@ pip install -r requirements.txt
 # Run with GUI (default)
 ./chesscpp2
 
-# Play against AI
+# Play against AI (default depth is 8)
 ./chesscpp2 -c
 
-# Set AI search depth (default is 6)
-./chesscpp2 -c -d 6
+# Override AI search depth
+./chesscpp2 -c -d 10
 
 # Run in console mode (no GUI)
 ./chesscpp2 --nogui
@@ -97,6 +97,12 @@ pip install -r requirements.txt
 
 # UCI mode (for chess GUIs/tournaments)
 ./chesscpp2 --uci
+
+# Start with 8 search threads explicitly
+./chesscpp2 --threads 8
+
+# Start UCI mode with 16 search threads
+./chesscpp2 --uci --threads 16
 
 # Show help
 ./chesscpp2 --help
@@ -251,16 +257,7 @@ From the starting position with **magic bitboards enabled**:
 | 4     | 197,281    | 0.044s   | 4.5              | ✓      |
 | 5     | 4,865,609  | 0.122s   | 39               | ✓      |
 
-**Note**: All perft results are correct and verified! Stack-allocated `MoveList` provides +11% NPS over `std::vector<Move>`.
-
-### AI Performance
-
-- Depth 3: ~0.1 seconds per move (beginner level)
-- Depth 4: ~1 second per move (intermediate level)
-- Depth 5: ~10 seconds per move (advanced level)
-- Depth 6+: 30+ seconds per move (expert level)
-
-**Magic bitboards provide ~10x speedup over array-based move generation!**
+**Note**: Stack-allocated `MoveList` provides +11% NPS over `std::vector<Move>`.
 
 ## Testing
 

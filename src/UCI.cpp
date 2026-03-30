@@ -10,9 +10,11 @@
 #include <iostream>
 #include <sstream>
 
-UCI::UCI() : game(Game::HUMAN_VS_AI), searchDepth(6), debug(false) {
+UCI::UCI(int initialThreads)
+    : game(Game::HUMAN_VS_AI), searchDepth(AI::DEFAULT_DEPTH), debug(false) {
   Logger::getInstance().setEnabled(false);
   game.setAIDepth(searchDepth);
+  game.setThreads(initialThreads);
 
   // Try multiple paths for opening book (depends on where engine is run from)
   bool bookLoaded = false;
@@ -82,10 +84,12 @@ void UCI::loop() {
 void UCI::handleUCI() {
   std::cout << "id name Chess++ Bitboards" << std::endl;
   std::cout << "id author Chess++ Team" << std::endl;
-  std::cout << "option name Threads type spin default 1 min 1 max 256" << std::endl;
+  std::cout << "option name Threads type spin default " << AI::DEFAULT_THREADS << " min "
+            << AI::MIN_THREADS << " max " << AI::MAX_THREADS << std::endl;
   std::cout << "option name Hash type spin default 128 min 1 max 4096" << std::endl;
   std::cout << "option name Debug type check default false" << std::endl;
-  std::cout << "option name Depth type spin default 6 min 1 max 20" << std::endl;
+  std::cout << "option name Depth type spin default " << AI::DEFAULT_DEPTH << " min 1 max 20"
+            << std::endl;
   std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
   std::cout << "option name BookPath type string default <empty>" << std::endl;
   std::cout << "option name OwnBook type check default true" << std::endl;
@@ -287,8 +291,7 @@ void UCI::handleSetOption(const std::string& args) {
 
   if (name == "Threads") {
     int n = std::stoi(value);
-    if (n < 1) n = 1;
-    if (n > 256) n = 256;
+    n = AI::clampThreadCount(n);
     game.setThreads(n);
     if (debug) {
       std::cout << "info string Threads set to " << n << std::endl;

@@ -28,13 +28,14 @@ make -j4
 ### Play Against AI
 
 ```bash
-./chesscpp2 -c -d 4    # AI at depth 4 (recommended)
+./chesscpp2 -c                  # AI at default depth 4
+./chesscpp2 -c -d 6 --threads 4 # AI at depth 6
 ```
 
 ### Console Mode
 
 ```bash
-./chesscpp2 --nogui -c
+./chesscpp2 --nogui -c --threads 4
 ```
 
 **Commands:**
@@ -60,18 +61,18 @@ make -j4
 ## AI Difficulty Levels
 
 - Depth 3: Easy (0.1s per move)
-- Depth 4: Medium (1s per move) **← Recommended**
+- Depth 4: Medium (default) **← Recommended**
 - Depth 5: Hard (10s per move)
-- Depth 6: Expert (30s+ per move)
+- Depth 8: Expert
 
 ## Example Session
 
 ```bash
-# Start game with AI at depth 4
-$ ./chesscpp2 -c -d 4
+# Start game with the default AI depth (4)
+$ ./chesscpp2 -c
 
-# Or in console mode
-$ ./chesscpp2 --nogui -c -d 4
+# Or override it explicitly in console mode
+$ ./chesscpp2 --nogui -c -d 6
 ```
 
 ## Troubleshooting

@@ -9,7 +9,8 @@ mkdir -p build && cd build && cmake .. && cmake --build .
 
 # From build/ directory:
 ./chesscpp2              # GUI mode (default)
-./chesscpp2 -c -d 6      # Play vs AI at depth 6 (default)
+./chesscpp2 -c           # Play vs AI at default depth 4
+./chesscpp2 -c -d 8      # Override AI search depth
 ./chesscpp2 --nogui -c   # Console mode
 ./chesscpp2 --perft 5    # Perft test to depth 5
 ./chesscpp2 --uci        # UCI mode (for GUIs/tournaments)
@@ -107,7 +108,8 @@ Polyglot hashing uses standardized Zobrist keys *different from the engine's int
 
 ## UCI Options
 
-- `setoption name Threads value 4` — Number of search threads (default 1, range 1–256)
+- `setoption name Threads value 4` — Number of search threads (default 4, range 1–256)
+- `setoption name Depth value 12` — Search depth (default 4, range 1–20)
 - `setoption name Hash value 64` — Transposition table size in MB (default 128, range 1–4096)
 - `setoption name SyzygyPath value /path/to/syzygy` — Syzygy tablebase directory
 - `setoption name BookPath value /path/to/books/Titans.bin` — Polyglot opening book

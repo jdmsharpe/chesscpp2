@@ -17,7 +17,10 @@ void printUsage() {
   std::cout << "Options:\n";
   std::cout << "  -h, --help        Show this help message\n";
   std::cout << "  -c, --computer    Play against AI\n";
-  std::cout << "  -d, --depth N     Set AI search depth (default: 4)\n";
+  std::cout << "  -d, --depth N     Set AI search depth (default: " << AI::DEFAULT_DEPTH
+            << ")\n";
+  std::cout << "  -t, --threads N   Set AI thread count (default: " << AI::DEFAULT_THREADS
+            << ")\n";
   std::cout << "  -f, --fen FEN     Load position from FEN string\n";
   std::cout << "  -l, --load FILE   Load position from file\n";
   std::cout << "  --perft N         Run perft test to depth N (use with -f for custom position)\n";
@@ -116,7 +119,8 @@ int main(int argc, char* argv[]) {
   bool useAI = false;
   bool useGUI = true;
   bool useUCI = false;
-  int aiDepth = 6;
+  int aiDepth = AI::DEFAULT_DEPTH;
+  int aiThreads = AI::DEFAULT_THREADS;
   std::string fenString = "";
   std::string loadFile = "";
   int perftDepth = 0;
@@ -132,6 +136,10 @@ int main(int argc, char* argv[]) {
     } else if (arg == "-d" || arg == "--depth") {
       if (i + 1 < argc) {
         aiDepth = std::stoi(argv[++i]);
+      }
+    } else if (arg == "-t" || arg == "--threads") {
+      if (i + 1 < argc) {
+        aiThreads = AI::clampThreadCount(std::stoi(argv[++i]));
       }
     } else if (arg == "-f" || arg == "--fen") {
       if (i + 1 < argc) {
@@ -157,7 +165,7 @@ int main(int argc, char* argv[]) {
     BB::init();
     Magic::init();
     Zobrist::init();
-    UCI uci;
+    UCI uci(aiThreads);
     uci.loop();
     return 0;
   }
@@ -179,6 +187,7 @@ int main(int argc, char* argv[]) {
   Game::GameMode mode = useAI ? Game::HUMAN_VS_AI : Game::HUMAN_VS_HUMAN;
   Game game(mode);
   game.setAIDepth(aiDepth);
+  game.setThreads(aiThreads);
 
   // Load opening book (try Polyglot first, fall back to text book)
   if (!game.loadPolyglotBook("../books/Titans.bin")) {

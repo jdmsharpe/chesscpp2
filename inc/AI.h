@@ -53,7 +53,12 @@ struct ThreadData {
 // AI engine with minimax + alpha-beta pruning + transposition table
 class AI {
  public:
-  AI(int depth = 6);
+  static constexpr int DEFAULT_DEPTH = 4;
+  static constexpr int MIN_THREADS = 1;
+  static constexpr int MAX_THREADS = 256;
+  static constexpr int DEFAULT_THREADS = 4;
+
+  AI(int depth = DEFAULT_DEPTH);
 
   // Find the best move for the current position
   Move findBestMove(Position& pos);
@@ -67,7 +72,10 @@ class AI {
   int getDepth() const { return depth; }
 
   // Thread count
-  void setThreads(int n) { numThreads = std::max(1, n); }
+  static constexpr int clampThreadCount(int n) {
+    return n < MIN_THREADS ? MIN_THREADS : (n > MAX_THREADS ? MAX_THREADS : n);
+  }
+  void setThreads(int n) { numThreads = clampThreadCount(n); }
   int getThreads() const { return numThreads; }
 
   // Time management
@@ -125,7 +133,7 @@ class AI {
 
  private:
   int depth;
-  int numThreads = 1;
+  int numThreads = DEFAULT_THREADS;
 
   // Time management
   int timeLimit;             // Time limit in milliseconds (0 = no limit)

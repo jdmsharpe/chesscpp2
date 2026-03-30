@@ -9,7 +9,7 @@
 // UCI (Universal Chess Interface) protocol handler
 class UCI {
  public:
-  UCI();
+  explicit UCI(int initialThreads = AI::DEFAULT_THREADS);
   ~UCI();
 
   // Main UCI loop - reads commands from stdin and responds

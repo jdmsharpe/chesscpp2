@@ -58,6 +58,13 @@ class AITest : public ::testing::Test {
 };
 
 // ---------- Test 1: Mate in 1 ----------
+TEST_F(AITest, DefaultConfig) {
+  AI ai;
+
+  EXPECT_EQ(ai.getDepth(), AI::DEFAULT_DEPTH);
+  EXPECT_EQ(ai.getThreads(), AI::DEFAULT_THREADS);
+}
+
 TEST_F(AITest, FindsMateInOne) {
   // White to move: king on b6, rook on h1, black king on a8.
   // Rh8# is mate in 1.
@@ -471,7 +478,7 @@ TEST_F(AITest, MultiThread_RepeatedSearchesRemainStableWithSharedTT) {
 
 TEST_F(AITest, MultiThread_SetThreadsConfig) {
   AI ai(4);
-  EXPECT_EQ(ai.getThreads(), 1);  // Default
+  EXPECT_EQ(ai.getThreads(), AI::DEFAULT_THREADS);
 
   ai.setThreads(8);
   EXPECT_EQ(ai.getThreads(), 8);
