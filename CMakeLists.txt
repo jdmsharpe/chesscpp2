@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(chesscpp2 VERSION 1.0.0 LANGUAGES CXX C)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Default build type if not specified (allows user override via -DCMAKE_BUILD_TYPE=...)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
