@@ -3,7 +3,6 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <sstream>
 #include <string>
 
 // Simple thread-safe logger that writes to file

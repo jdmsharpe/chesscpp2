@@ -2,10 +2,18 @@
 
 #include "Logger.h"
 #include "MoveGen.h"
+#include "Position.h"
+#include "Types.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <ios>
 #include <random>
+#include <string>
+#include <utility>
+#include <vector>
 
 // Polyglot random numbers - these are standardized and must match exactly
 // Source: http://hgm.nubati.net/book_format.html

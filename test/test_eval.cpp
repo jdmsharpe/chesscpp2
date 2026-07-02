@@ -2,6 +2,7 @@
 #include "Eval.h"
 #include "Magic.h"
 #include "Position.h"
+#include "Types.h"
 #include "Zobrist.h"
 
 #include <gtest/gtest.h>

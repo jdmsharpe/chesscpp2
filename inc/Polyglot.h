@@ -3,8 +3,10 @@
 #include "Position.h"
 #include "Types.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Polyglot opening book support

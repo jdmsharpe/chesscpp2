@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Position.h"
+#include "Types.h"
 
 namespace Eval {
 // Evaluate position from the perspective of the side to move.

@@ -3,7 +3,11 @@
 #include "MoveGen.h"
 #include "PST.h"
 #include "Position.h"
+#include "Types.h"
 #include "Zobrist.h"
+
+#include <algorithm>
+#include <string>
 
 #include <gtest/gtest.h>
 

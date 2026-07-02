@@ -1,15 +1,16 @@
 #include "Bitboard.h"
 #include "Magic.h"
-#include "MoveGen.h"
 #include "Polyglot.h"
 #include "PolyglotTestUtils.h"
 #include "Position.h"
 #include "UCI.h"
 #include "Zobrist.h"
 
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 

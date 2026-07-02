@@ -1,7 +1,24 @@
 #include "Window.h"
 
+#include "Game.h"
 #include "MoveGen.h"
+#include "Position.h"
+#include "Types.h"
 
+#include <SDL.h>
+#include <SDL_blendmode.h>
+#include <SDL_error.h>
+#include <SDL_events.h>
+#include <SDL_image.h>
+#include <SDL_keycode.h>
+#include <SDL_mouse.h>
+#include <SDL_pixels.h>
+#include <SDL_rect.h>
+#include <SDL_render.h>
+#include <SDL_surface.h>
+#include <SDL_timer.h>
+#include <SDL_video.h>
+#include <cstdlib>
 #include <iostream>
 
 Window::Window(int width, int height)

@@ -1,8 +1,10 @@
+#include "AI.h"
 #include "Bitboard.h"
 #include "Game.h"
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
+#include "Types.h"
 #include "UCI.h"
 #include "Window.h"
 #include "Zobrist.h"
@@ -17,10 +19,8 @@ void printUsage() {
   std::cout << "Options:\n";
   std::cout << "  -h, --help        Show this help message\n";
   std::cout << "  -c, --computer    Play against AI\n";
-  std::cout << "  -d, --depth N     Set AI search depth (default: " << AI::DEFAULT_DEPTH
-            << ")\n";
-  std::cout << "  -t, --threads N   Set AI thread count (default: " << AI::DEFAULT_THREADS
-            << ")\n";
+  std::cout << "  -d, --depth N     Set AI search depth (default: " << AI::DEFAULT_DEPTH << ")\n";
+  std::cout << "  -t, --threads N   Set AI thread count (default: " << AI::DEFAULT_THREADS << ")\n";
   std::cout << "  -f, --fen FEN     Load position from FEN string\n";
   std::cout << "  -l, --load FILE   Load position from file\n";
   std::cout << "  --perft N         Run perft test to depth N (use with -f for custom position)\n";

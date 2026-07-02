@@ -2,10 +2,12 @@
 
 #include "Bitboard.h"
 #include "Logger.h"
-#include "Magic.h"
 #include "MoveGen.h"
+#include "Position.h"
+#include "Types.h"
 
-#include <iostream>
+#include <cstdint>
+#include <string>
 
 // Define attack functions before including Fathom headers
 // This allows Fathom to use our existing optimized attack generation

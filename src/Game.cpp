@@ -1,10 +1,13 @@
 #include "Game.h"
 
 #include "MoveGen.h"
+#include "Position.h"
+#include "Types.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <fstream>
-#include <iostream>
+#include <string>
 
 Game::Game(GameMode mode) : mode(mode), result(IN_PROGRESS) {
   reset();

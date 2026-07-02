@@ -1,10 +1,10 @@
 #pragma once
 
-#include "MoveGen.h"
 #include "Position.h"
 #include "Types.h"
 
 #include <array>
+#include <cstddef>
 
 // Staged move generation: yields pseudo-legal moves in priority order.
 // Caller is responsible for legality checking via makeMove + isAttacked.

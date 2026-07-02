@@ -1,4 +1,5 @@
 #include "Bitboard.h"
+#include "Types.h"
 
 #include <gtest/gtest.h>
 

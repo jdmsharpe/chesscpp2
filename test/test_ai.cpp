@@ -4,12 +4,13 @@
 #include "MoveGen.h"
 #include "Position.h"
 #include "Tablebase.h"
+#include "Types.h"
 #include "Zobrist.h"
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <thread>
-#include <vector>
 
 #include <gtest/gtest.h>
 

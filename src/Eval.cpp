@@ -2,9 +2,13 @@
 
 #include "Bitboard.h"
 #include "Magic.h"
-#include "PST.h"
+#include "Position.h"
 #include "Types.h"
 #include "Zobrist.h"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdlib>
 
 namespace {
 

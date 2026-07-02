@@ -6,3 +6,12 @@ Index:
 
 Diagnostics:
   MissingIncludes: Strict
+
+# Header-only files (Types.h, PST.h, MoveList.h, Logger.h) have no matching
+# .cpp in the compile database; without this clangd may infer flags from the
+# Fathom C library and parse them as C99.
+---
+If:
+  PathMatch: inc/.*\.h
+CompileFlags:
+  Add: [-xc++-header, -std=c++20]

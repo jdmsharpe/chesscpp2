@@ -5,8 +5,10 @@
 #include "Zobrist.h"
 
 #include <chrono>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
+#include <ratio>
 #include <string>
 #include <vector>
 

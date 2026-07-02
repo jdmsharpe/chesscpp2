@@ -2,9 +2,12 @@
 #include "Magic.h"
 #include "MoveGen.h"
 #include "Position.h"
+#include "Types.h"
 #include "Zobrist.h"
 
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 

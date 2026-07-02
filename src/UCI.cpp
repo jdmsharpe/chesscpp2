@@ -1,6 +1,7 @@
 #include "UCI.h"
 
 #include "AI.h"
+#include "Game.h"
 #include "Logger.h"
 #include "MoveGen.h"
 #include "Tablebase.h"
@@ -9,6 +10,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
 
 UCI::UCI(int initialThreads)
     : game(Game::HUMAN_VS_AI), searchDepth(AI::DEFAULT_DEPTH), debug(false) {

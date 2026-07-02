@@ -1,8 +1,7 @@
 #include "Magic.h"
 
 #include "Bitboard.h"
-
-#include <random>
+#include "Types.h"
 
 namespace Magic {
 

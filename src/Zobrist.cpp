@@ -1,5 +1,7 @@
 #include "Zobrist.h"
 
+#include "Types.h"
+
 #include <random>
 
 namespace Zobrist {

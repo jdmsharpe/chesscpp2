@@ -1,11 +1,14 @@
 #pragma once
 
 #include "Game.h"
+#include "Position.h"
 #include "Types.h"
 
+#include <SDL_pixels.h>
+#include <SDL_rect.h>
+#include <SDL_render.h>
+#include <SDL_video.h>
 #include <memory>
-#include <string>
-#include <vector>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>

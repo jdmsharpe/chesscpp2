@@ -1,8 +1,11 @@
 #include "Bitboard.h"
 #include "Game.h"
 #include "Magic.h"
-#include "MoveGen.h"
+#include "Position.h"
+#include "Types.h"
 #include "Zobrist.h"
+
+#include <string>
 
 #include <gtest/gtest.h>
 

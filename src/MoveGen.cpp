@@ -3,7 +3,11 @@
 #include "Bitboard.h"
 #include "Logger.h"
 #include "Magic.h"
+#include "Position.h"
+#include "Types.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 
 namespace MoveGen {

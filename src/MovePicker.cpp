@@ -1,6 +1,12 @@
 #include "MovePicker.h"
 
+#include "MoveGen.h"
+#include "Position.h"
+#include "Types.h"
+
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <limits>
 
 MovePicker::MovePicker(Position& pos, Move ttMove, Move killer1, Move killer2, Move countermove,

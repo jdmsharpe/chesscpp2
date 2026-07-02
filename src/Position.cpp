@@ -3,12 +3,16 @@
 #include "Bitboard.h"
 #include "Logger.h"
 #include "Magic.h"
+#include "PST.h"
+#include "Types.h"
 #include "Zobrist.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <string>
 
 Position::Position() {
   clear();

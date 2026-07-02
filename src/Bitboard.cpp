@@ -1,7 +1,12 @@
 #include "Bitboard.h"
 
+#include "Types.h"
+
+#include <cstdlib>
 #include <iomanip>
+#include <ios>
 #include <sstream>
+#include <string>
 
 namespace BB {
 

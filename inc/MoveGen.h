@@ -3,6 +3,8 @@
 #include "Position.h"
 #include "Types.h"
 
+#include <cstdint>
+
 // Fast move generation using bitboards
 namespace MoveGen {
 

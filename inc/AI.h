@@ -6,13 +6,13 @@
 
 #include <array>
 #include <atomic>
-#include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <optional>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -192,9 +192,7 @@ class AI {
       return TTFlag(unpackFlagAge(packed) & 3);
     }
 
-    static constexpr uint8_t unpackAge(uint64_t packed) {
-      return unpackFlagAge(packed) >> 2;
-    }
+    static constexpr uint8_t unpackAge(uint64_t packed) { return unpackFlagAge(packed) >> 2; }
 
     void clear() {
       payload.store(0, std::memory_order_relaxed);

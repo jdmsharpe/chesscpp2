@@ -4,6 +4,7 @@
 #include "Position.h"
 #include "Types.h"
 
+#include <cstddef>
 #include <string>
 
 // Game controller - manages game state and player interactions

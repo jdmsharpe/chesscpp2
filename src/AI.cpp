@@ -5,16 +5,26 @@
 #include "Logger.h"
 #include "MoveGen.h"
 #include "MovePicker.h"
+#include "Position.h"
 #include "Tablebase.h"
+#include "Types.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <random>
 #include <sstream>
+#include <string>
 #include <thread>
+#include <vector>
 
 namespace {
 
@@ -1119,10 +1129,9 @@ void AI::storeTT(HashKey hash, int depth, int score, Move bestMove, int alphaOri
   }
 
   TTEntry& target = bucket.entries[replaceIdx];
-  uint64_t packed = TTEntry::pack(
-      static_cast<int16_t>(std::max(std::min(adjScore, 32000), -32000)), bestMove,
-      static_cast<int8_t>(std::min(depth, 127)),
-      static_cast<uint8_t>((ttAge << 2) | static_cast<uint8_t>(flag)));
+  uint64_t packed = TTEntry::pack(static_cast<int16_t>(std::max(std::min(adjScore, 32000), -32000)),
+                                  bestMove, static_cast<int8_t>(std::min(depth, 127)),
+                                  static_cast<uint8_t>((ttAge << 2) | static_cast<uint8_t>(flag)));
   target.key32.store(0, std::memory_order_relaxed);
   target.payload.store(packed, std::memory_order_relaxed);
   target.key32.store(key32, std::memory_order_release);

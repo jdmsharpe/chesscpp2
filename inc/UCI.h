@@ -1,7 +1,8 @@
 #pragma once
 
+#include "AI.h"
 #include "Game.h"
-#include "Position.h"
+#include "Types.h"
 
 #include <string>
 #include <vector>
